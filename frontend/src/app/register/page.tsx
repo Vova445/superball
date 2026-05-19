@@ -13,6 +13,7 @@ export default function RegisterPage() {
     email: '',
     password: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -22,108 +23,154 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
       const response = await api.post('/auth/register', formData);
-      // Backend returns Token schema: access_token, refresh_token, token_type
-      // We also need user info. Usually /auth/register should return user info too.
-      // Let's assume we fetch user info after login/register or it's included.
-      // For now, I'll assume the backend returns the tokens and we might need to fetch user.
-      // But looking at my backend implementation, it returns Token.
-      
-      // Fetch user info with the new access token
-      const userResponse = await api.get('/api/health', {
-          headers: { Authorization: `Bearer ${response.data.access_token}` }
-      });
-      // Actually, health is just status. Let's assume we have a /api/users/me later.
-      // For simplicity, let's just save tokens.
-      
       setAuth(
-          { id: 0, username: formData.username, nickname: formData.nickname, email: formData.email }, 
-          response.data.access_token, 
-          response.data.refresh_token
+        { id: 0, username: formData.username, nickname: formData.nickname, email: formData.email },
+        response.data.access_token,
+        response.data.refresh_token
       );
-      
       router.push('/');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Registration failed');
+      setError(err.response?.data?.detail || 'Не вдалося зареєструватися');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-900 px-4">
-      <div className="w-full max-w-md space-y-8 rounded-2xl bg-gray-800 p-10 shadow-xl border border-gray-700">
-        <div className="text-center">
-          <h2 className="mt-6 text-3xl font-bold tracking-tight text-white">Create Account</h2>
-          <p className="mt-2 text-sm text-gray-400">Join the Megaball community today</p>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4 rounded-md shadow-sm">
-            <div>
-              <input
-                type="text"
-                required
-                className="relative block w-full rounded-lg border-0 bg-gray-700 py-3 px-4 text-white placeholder-gray-400 ring-1 ring-inset ring-gray-600 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm"
-                placeholder="Username"
-                value={formData.username}
-                onChange={(e) => setFormData({...formData, username: e.target.value})}
-              />
-            </div>
-            <div>
-              <input
-                type="text"
-                required
-                className="relative block w-full rounded-lg border-0 bg-gray-700 py-3 px-4 text-white placeholder-gray-400 ring-1 ring-inset ring-gray-600 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm"
-                placeholder="Nickname"
-                value={formData.nickname}
-                onChange={(e) => setFormData({...formData, nickname: e.target.value})}
-              />
-            </div>
-            <div>
-              <input
-                type="email"
-                required
-                className="relative block w-full rounded-lg border-0 bg-gray-700 py-3 px-4 text-white placeholder-gray-400 ring-1 ring-inset ring-gray-600 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm"
-                placeholder="Email address"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-              />
-            </div>
-            <div>
-              <input
-                type="password"
-                required
-                className="relative block w-full rounded-lg border-0 bg-gray-700 py-3 px-4 text-white placeholder-gray-400 ring-1 ring-inset ring-gray-600 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm"
-                placeholder="Password"
-                value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
-              />
-            </div>
-          </div>
-
-          {error && <div className="text-red-500 text-sm text-center">{error}</div>}
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative flex w-full justify-center rounded-lg bg-blue-600 py-3 px-4 text-sm font-semibold text-white hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all disabled:opacity-50"
-            >
-              {loading ? 'Creating account...' : 'Sign up'}
-            </button>
-          </div>
-        </form>
-        <div className="text-center">
-          <p className="text-sm text-gray-400">
-            Already have an account?{' '}
-            <Link href="/login" className="font-medium text-blue-500 hover:text-blue-400">
-              Sign in
+    <main className="auth-bg min-h-screen overflow-hidden">
+      <div className="flex min-h-screen items-stretch justify-center p-0 lg:justify-end">
+        <section className="auth-panel flex min-h-screen w-full max-w-none flex-col lg:w-[40vw]">
+          <div className="auth-tabs grid grid-cols-2">
+            <Link href="/login" className="auth-tab text-white/70">
+              Увійти
             </Link>
-          </p>
-        </div>
+            <span className="auth-tab auth-tab-active text-megaball-cyan">Реєстрація</span>
+          </div>
+
+          <div className="auth-content flex flex-1 flex-col justify-center px-6 py-10 sm:px-10 sm:py-11 lg:px-10 xl:px-12">
+            <div className="mb-10 text-center">
+              <h1 className="text-5xl font-extrabold uppercase text-megaball-purple text-glow-purple xl:text-6xl">
+                Створити аккаунт
+              </h1>
+              <p className="mt-4 text-xl font-bold uppercase tracking-wide text-megaball-cyan">
+                Приєднуйтесь до MEGABOL
+              </p>
+            </div>
+
+            <form className="space-y-5" onSubmit={handleSubmit}>
+              <label className="auth-field">
+                <span className="auth-field-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z" />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  required
+                  autoComplete="username"
+                  placeholder="Логін"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                />
+              </label>
+
+              <label className="auth-field">
+                <span className="auth-field-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 3h-2v2h-2V3H9v2H7V3H5v18h14V3Zm-2 16H7V7h10v12Zm-2-8H9v2h6v-2Zm0 4H9v2h6v-2Z" />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  required
+                  placeholder="Нікнейм"
+                  value={formData.nickname}
+                  onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+                />
+              </label>
+
+              <label className="auth-field">
+                <span className="auth-field-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 4-8 5L4 8V6l8 5 8-5v2Z" />
+                  </svg>
+                </span>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="Email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </label>
+
+              <label className="auth-field">
+                <span className="auth-field-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17 9V7A5 5 0 0 0 7 7v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Zm4 7.73V18h-2v-1.27a2 2 0 1 1 2 0Z" />
+                  </svg>
+                </span>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  autoComplete="new-password"
+                  placeholder="Пароль"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                />
+                <button
+                  type="button"
+                  className="auth-eye"
+                  aria-label={showPassword ? 'Сховати пароль' : 'Показати пароль'}
+                  onClick={() => setShowPassword((value) => !value)}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </button>
+              </label>
+
+              {error && <p className="text-center text-sm font-semibold text-red-300">{error}</p>}
+
+              <button type="submit" className="auth-submit" disabled={loading}>
+                {loading ? 'Створюємо...' : 'Зареєструватись'}
+              </button>
+            </form>
+
+            <div className="my-10 flex items-center gap-6">
+              <span className="h-px flex-1 bg-white/15" />
+              <span className="text-base font-bold uppercase text-megaball-cyan">
+                Або через
+              </span>
+              <span className="h-px flex-1 bg-white/15" />
+            </div>
+
+            <div className="grid grid-cols-3 gap-6">
+              <button type="button" className="auth-social auth-apple" aria-label="Apple">
+                Apple
+              </button>
+              <button type="button" className="auth-social auth-google" aria-label="Google">
+                G
+              </button>
+              <button type="button" className="auth-social auth-facebook" aria-label="Facebook">
+                Facebook
+              </button>
+            </div>
+
+            <p className="auth-switch">
+              Вже маєте аккаунт?{' '}
+              <Link href="/login">
+                Увійти
+              </Link>
+            </p>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

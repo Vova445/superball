@@ -1,67 +1,88 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
+import Logo from '@/components/Logo';
+import { Button } from '@/components/ui';
+import { cn } from '@/lib/cn';
 
-export default function HomePage() {
-  const { user, logout, accessToken } = useAuthStore();
+const NAV_ITEMS = [
+  { href: '/ranked', label: 'Ranked', icon: '🏆', desc: 'Competitive MMR' },
+  { href: '/inventory', label: 'Inventory', icon: '🎒', desc: 'Skins & loadout' },
+  { href: '/shop', label: 'Shop', icon: '🛒', desc: 'Skins & Battle Pass' },
+  { href: '/profile', label: 'Profile', icon: '👤', desc: 'Stats & history' },
+  { href: '/settings', label: 'Settings', icon: '⚙️', desc: 'Audio & controls' },
+] as const;
+
+export default function MainMenuPage() {
+  const { user, logout } = useAuthStore();
+  const { ready } = useRequireAuth();
   const router = useRouter();
 
-  useEffect(() => {
-    if (!accessToken) {
-      router.push('/login');
-    }
-  }, [accessToken, router]);
-
-  if (!accessToken || !user) {
-    return null;
-  }
+  if (!ready || !user) return null;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gray-900 text-white p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-700 bg-gray-800/60 pb-6 pt-8 backdrop-blur-2xl lg:static lg:w-auto lg:rounded-xl lg:border lg:p-4">
-          Welcome to&nbsp;
-          <code className="font-bold text-blue-500">Megaball</code>
-        </p>
-        <button 
+    <main className="arcade-bg relative flex min-h-screen flex-col items-center justify-center p-4 md:p-8">
+      <div className="pointer-events-none absolute top-[-10%] left-[-5%] h-[45%] w-[45%] rounded-full bg-megaball-purple/20 blur-[120px]" />
+      <div className="pointer-events-none absolute bottom-[-10%] right-[-5%] h-[45%] w-[45%] rounded-full bg-megaball-cyan/15 blur-[120px]" />
+
+      <header className="relative z-10 mb-8 flex w-full max-w-4xl items-center justify-between">
+        <Logo size="md" />
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => {
             logout();
             router.push('/login');
           }}
-          className="rounded-lg bg-red-600 px-4 py-2 hover:bg-red-500 transition-colors"
+          className="border-red-500/30 text-red-400"
         >
           Logout
-        </button>
-      </div>
+        </Button>
+      </header>
 
-      <div className="mt-20 text-center">
-        <h1 className="text-6xl font-bold mb-4 bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
-          Hello, {user.nickname}!
-        </h1>
-        <p className="text-xl text-gray-400">
-          You are successfully authenticated. Ready for the match?
+      <div className="relative z-10 w-full max-w-4xl">
+        <p className="text-center font-orbitron text-xs uppercase tracking-[0.35em] text-megaball-cyan text-glow-cyan">
+          Main Menu
         </p>
-      </div>
+        <p className="mt-2 text-center text-white/50">Welcome back, {user.nickname}</p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-16 max-w-4xl w-full">
-        <div 
+        {/* Play Now — large CTA */}
+        <button
+          type="button"
           onClick={() => router.push('/game')}
-          className="bg-gray-800 p-8 rounded-2xl border border-gray-700 hover:border-blue-500 transition-all cursor-pointer group"
+          className="group relative mx-auto mt-10 flex w-full max-w-lg flex-col items-center overflow-hidden rounded-arcade-xl border-2 border-megaball-cyan bg-gradient-to-r from-megaball-purple to-megaball-cyan p-1 shadow-neon-cyan transition-transform hover:scale-[1.02] active:scale-[0.98]"
         >
-          <h3 className="text-2xl font-bold mb-2 group-hover:text-blue-500">Play Game</h3>
-          <p className="text-gray-400">Jump into a quick match with other players online.</p>
-        </div>
-        <div 
-          id="profile-card"
-          onClick={() => router.push('/profile')}
-          className="bg-gray-800 p-8 rounded-2xl border border-gray-700 hover:border-purple-500 transition-all cursor-pointer group"
-        >
-          <h3 className="text-2xl font-bold mb-2 group-hover:text-purple-500">Profile</h3>
-          <p className="text-gray-400">View your stats, achievements and edit your character.</p>
-        </div>
+          <span className="flex w-full flex-col items-center rounded-[14px] bg-megaball-dark/90 px-8 py-10 transition-colors group-hover:bg-megaball-dark/70">
+            <span className="text-5xl">⚡</span>
+            <span className="arcade-heading mt-3 text-4xl text-white group-hover:text-megaball-cyan">
+              Play Now
+            </span>
+            <span className="mt-2 font-orbitron text-sm uppercase tracking-widest text-megaball-cyan">
+              Quick Match
+            </span>
+          </span>
+        </button>
 
+        {/* Nav grid */}
+        <nav className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.href}
+              type="button"
+              onClick={() => router.push(item.href)}
+              className={cn(
+                'rounded-arcade-xl border border-megaball-border bg-megaball-surface/70 p-4 text-left backdrop-blur',
+                'transition-all hover:-translate-y-0.5 hover:border-megaball-purple hover:shadow-neon-purple'
+              )}
+            >
+              <span className="text-2xl">{item.icon}</span>
+              <p className="arcade-heading mt-2 text-sm text-white">{item.label}</p>
+              <p className="mt-1 text-xs text-white/40">{item.desc}</p>
+            </button>
+          ))}
+        </nav>
       </div>
     </main>
   );

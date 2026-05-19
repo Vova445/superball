@@ -1,16 +1,16 @@
 'use client';
 
 import { PageShell } from '@/components/layout/PageShell';
-import { ProfileDetails } from '@/components/profile/ProfileDetails';
+import { ShopScreen } from '@/components/shop/ShopScreen';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 
-export default function ProfilePage() {
+export default function ShopPage() {
   const { ready } = useRequireAuth();
   if (!ready) return null;
 
   return (
-    <PageShell title="Profile" maxWidth="4xl">
-      <ProfileDetails />
+    <PageShell title="Shop" maxWidth="6xl">
+      <ShopScreen />
     </PageShell>
   );
 }

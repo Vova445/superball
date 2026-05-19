@@ -9,10 +9,10 @@ import { useAuthStore } from '@/store/useAuthStore';
 const GameContainer = dynamic(() => import('@/components/Game/GameContainer'), {
     ssr: false,
     loading: () => (
-        <div className="flex h-screen w-full items-center justify-center bg-gray-900 text-white">
+        <div className="arcade-bg flex h-screen w-full items-center justify-center text-white">
             <div className="text-center">
-                <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent mx-auto"></div>
-                <p className="text-xl font-bold">Loading Arena...</p>
+                <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-megaball-cyan border-t-transparent mx-auto"></div>
+                <p className="arcade-heading text-xl text-megaball-cyan text-glow-cyan">Loading Arena...</p>
             </div>
         </div>
     )

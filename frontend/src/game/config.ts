@@ -8,7 +8,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO, // Дозволяємо системі обрати WebGL або Canvas
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
-    backgroundColor: '#111111',
+    backgroundColor: '#0D0D1A',
     render: {
         antialias: false,        // Вимикаємо для швидкості
         pixelArt: true,          // Вимикаємо фільтрацію для продуктивності

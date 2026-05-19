@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import Phaser from 'phaser';
 import { gameConfig } from '../../game/config';
+import MatchHUD from './MatchHUD';
 
 export default function GameContainer() {
     const gameContainerRef = useRef<HTMLDivElement>(null);
@@ -28,11 +29,9 @@ export default function GameContainer() {
     }, []);
 
     return (
-        <div className="fixed inset-0 w-full h-full bg-black overflow-hidden">
-            <div 
-                ref={gameContainerRef} 
-                className="w-full h-full"
-            />
+        <div className="fixed inset-0 w-full h-full bg-megaball-dark overflow-hidden">
+            <div ref={gameContainerRef} className="h-full w-full" />
+            <MatchHUD homeScore={2} awayScore={1} initialSeconds={165} />
         </div>
     );
 }
