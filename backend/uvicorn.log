@@ -1,0 +1,143 @@
+Failed to connect to Redis. Falling back to In-Memory mock.
+2026-05-19 15:55:21,848 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-19 15:55:21,849 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("users")
+2026-05-19 15:55:21,849 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-19 15:55:21,850 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("matches")
+2026-05-19 15:55:21,850 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-19 15:55:21,852 INFO sqlalchemy.engine.Engine ALTER TABLE users ADD COLUMN mmr INTEGER DEFAULT 1000
+2026-05-19 15:55:21,852 INFO sqlalchemy.engine.Engine [generated in 0.00051s] ()
+2026-05-19 15:55:21,853 INFO sqlalchemy.engine.Engine COMMIT
+Database tables initialized successfully.
+Matchmaker background task started.
+Matchmaker background loop started.
+INFO:     127.0.0.1:60583 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58615 - "OPTIONS /auth/login HTTP/1.1" 200 OK
+2026-05-19 15:56:04,889 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-19 15:56:04,891 INFO sqlalchemy.engine.Engine SELECT users.id, users.username, users.nickname, users.email, users.hashed_password, users.is_active, users.mmr, users.created_at 
+FROM users 
+WHERE users.username = ?
+2026-05-19 15:56:04,892 INFO sqlalchemy.engine.Engine [generated in 0.00041s] ('Test1',)
+INFO:     127.0.0.1:58615 - "POST /auth/login HTTP/1.1" 200 OK
+2026-05-19 15:56:05,107 INFO sqlalchemy.engine.Engine ROLLBACK
+Connection attempt FROM sGMeMVUCClisuCVOAAAB with auth: {'token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzkxOTcxNjUsInN1YiI6IjEiLCJ0eXBlIjoiYWNjZXNzIn0.7knXKkepl7wzLqdLFqS9s51A8EMTfGANSV2fwepbNFg'}
+User 1 successfully connected with sid sGMeMVUCClisuCVOAAAB
+User 1 joined room game-room-1
+Game Room game-room-1 started at 60 TPS
+INFO:     127.0.0.1:56005 - "OPTIONS /auth/login HTTP/1.1" 200 OK
+2026-05-19 15:56:26,584 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-19 15:56:26,585 INFO sqlalchemy.engine.Engine SELECT users.id, users.username, users.nickname, users.email, users.hashed_password, users.is_active, users.mmr, users.created_at 
+FROM users 
+WHERE users.username = ?
+2026-05-19 15:56:26,585 INFO sqlalchemy.engine.Engine [cached since 21.69s ago] ('Test2',)
+INFO:     127.0.0.1:56005 - "POST /auth/login HTTP/1.1" 200 OK
+2026-05-19 15:56:26,794 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:62529 - "OPTIONS /auth/login HTTP/1.1" 200 OK
+2026-05-19 15:56:58,721 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-19 15:56:58,721 INFO sqlalchemy.engine.Engine SELECT users.id, users.username, users.nickname, users.email, users.hashed_password, users.is_active, users.mmr, users.created_at 
+FROM users 
+WHERE users.username = ?
+2026-05-19 15:56:58,721 INFO sqlalchemy.engine.Engine [cached since 53.83s ago] ('Test2',)
+INFO:     127.0.0.1:55334 - "POST /auth/login HTTP/1.1" 200 OK
+2026-05-19 15:56:58,948 INFO sqlalchemy.engine.Engine ROLLBACK
+Connection attempt FROM 9St8FrO4BrjA5ODNAAAD with auth: {'token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzkxOTcyMTgsInN1YiI6IjIiLCJ0eXBlIjoiYWNjZXNzIn0.tSvLmivL2QkKr8Yueixj0-nu-kXJ4Pu9MILCd6hPt90'}
+User 2 successfully connected with sid 9St8FrO4BrjA5ODNAAAD
+User 2 joined room game-room-1
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 497.64257250974526, vy: 8.89697567809619
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 265.12843222970116, vy: 6.795482551538971
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 567.8204679184857, vy: -39.62146765018071
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 134.47366632059865, vy: -16.066189389794353
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 471.22471191842595, vy: 42.62960017457128
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 496.566003923126, vy: -87.46342892869252
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 535.1294803776784, vy: -96.75069989629296
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 568.0563299311474, vy: -44.31272213551532
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 290.5033845710434, vy: -18.355291733416333
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 560.8256856902078, vy: -41.278869778381946
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 313.12035161147026, vy: -18.737371505338547
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 426.6655074117901, vy: -13.581184244212025
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 228.03323553751966, vy: -118.14411916557115
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 621.1308950546102, vy: -47.58491870514955
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 481.01141622562454, vy: -118.96926610940812
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 177.92115848085277, vy: 86.33175218603856
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 550.3117340674094, vy: -81.17029322411318
+Ball authoritatively hit by 9St8FrO4BrjA5ODNAAAD via socket event. vx: -133.61123182058824, vy: -203.65083687157482
+Hit validation failed for player 9St8FrO4BrjA5ODNAAAD. Distance 64.35473312975523 > max_dist 62.0
+Ball authoritatively hit by 9St8FrO4BrjA5ODNAAAD via socket event. vx: -505.4663858792992, vy: -231.00320892793707
+Ball authoritatively hit by 9St8FrO4BrjA5ODNAAAD via socket event. vx: -262.57535786642416, vy: -101.81072737953782
+Ball authoritatively hit by 9St8FrO4BrjA5ODNAAAD via socket event. vx: -243.6948448856132, vy: -102.24500513794051
+Ball authoritatively hit by 9St8FrO4BrjA5ODNAAAD via socket event. vx: -402.38228353426365, vy: -162.07374482729716
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 393.1558534708954, vy: 117.60993704795683
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 542.2509948702929, vy: 78.85443351652489
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 461.34765952435754, vy: 122.35477385156379
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 566.8267207329347, vy: 0.22563299500704304
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 112.00299815044708, vy: -59.39852305126188
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 264.85527183119166, vy: 105.12774111629652
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 218.75061819834264, vy: 102.93797085976102
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 114.94731141519009, vy: 52.166190486326606
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 164.26143143964896, vy: 9.049521294095166
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 187.4471034520714, vy: -88.15953724471149
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 459.1885215289857, vy: 111.04842088737392
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 336.58580694418345, vy: -15.744257466014751
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 114.90777057495748, vy: 87.57569591636349
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 501.2031014320038, vy: -73.853446789042
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 136.21959954010902, vy: -87.00918508985595
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 118.38170146682353, vy: -74.55712352622463
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 80.12770061926831, vy: 0.28734012089753236
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 81.67039240947454, vy: 27.4137817349687
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 374.14092948381955, vy: -58.81691503827389
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 568.9003900577608, vy: 11.637100164458374
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 319.8047770143356, vy: 8.83414876114063
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 233.6314260222811, vy: 8.705698573832697
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 119.86709881362557, vy: 8.378928696837692
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 538.1797183903077, vy: -23.500215325286664
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 454.9441996354414, vy: -83.9440397077444
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 108.29518807672262, vy: -65.54118644812338
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 250.97303282311458, vy: -93.20983741495834
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 230.30731736653516, vy: -89.23581047586808
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 407.1705965279184, vy: -37.40123897194198
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 271.26357359645124, vy: 19.835587459728494
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 236.49487192075958, vy: 14.31790191370042
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 141.41520525192945, vy: 11.216348718458114
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 184.45946816860695, vy: 120.46213549200546
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 542.5244116321873, vy: -36.17394488546056
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 156.5240567503111, vy: -96.55078384076424
+2026-05-19 16:00:25,021 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-19 16:00:25,023 INFO sqlalchemy.engine.Engine SELECT users.id, users.username, users.nickname, users.email, users.hashed_password, users.is_active, users.mmr, users.created_at 
+FROM users 
+WHERE users.id = ?
+2026-05-19 16:00:25,023 INFO sqlalchemy.engine.Engine [generated in 0.00046s] (1,)
+2026-05-19 16:00:25,026 INFO sqlalchemy.engine.Engine SELECT users.id, users.username, users.nickname, users.email, users.hashed_password, users.is_active, users.mmr, users.created_at 
+FROM users 
+WHERE users.id = ?
+2026-05-19 16:00:25,027 INFO sqlalchemy.engine.Engine [cached since 0.004299s ago] (2,)
+2026-05-19 16:00:25,032 INFO sqlalchemy.engine.Engine SELECT matches.id, matches.home_player_id, matches.away_player_id, matches.home_score, matches.away_score, matches.winner_id, matches.duration, matches.created_at 
+FROM matches 
+WHERE matches.home_player_id = ? OR matches.away_player_id = ?
+2026-05-19 16:00:25,033 INFO sqlalchemy.engine.Engine [generated in 0.00078s] ('1', '1')
+2026-05-19 16:00:25,036 INFO sqlalchemy.engine.Engine SELECT matches.id, matches.home_player_id, matches.away_player_id, matches.home_score, matches.away_score, matches.winner_id, matches.duration, matches.created_at 
+FROM matches 
+WHERE matches.home_player_id = ? OR matches.away_player_id = ?
+2026-05-19 16:00:25,036 INFO sqlalchemy.engine.Engine [cached since 0.004141s ago] ('2', '2')
+2026-05-19 16:00:25,041 INFO sqlalchemy.engine.Engine INSERT INTO matches (home_player_id, away_player_id, home_score, away_score, winner_id, duration) VALUES (?, ?, ?, ?, ?, ?) RETURNING id, created_at
+2026-05-19 16:00:25,041 INFO sqlalchemy.engine.Engine [generated in 0.00053s] ('1', '2', 3, 1, '1', 180)
+2026-05-19 16:00:25,046 INFO sqlalchemy.engine.Engine UPDATE users SET mmr=? WHERE users.id = ?
+2026-05-19 16:00:25,046 INFO sqlalchemy.engine.Engine [generated in 0.00047s] [(1032, 1), (968, 2)]
+2026-05-19 16:00:25,047 INFO sqlalchemy.engine.Engine COMMIT
+Match recorded in DB: ID 1. ELO updates: Home 1000 -> 1032 (+32), Away 1000 -> 968 (-32)
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 114.04081984509939, vy: -214.8907121560407
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 83.86335879175842, vy: -118.17340726074087
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 40.608134846917, vy: -69.12798701797118
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: -53.63072639779527, vy: 224.69218399535765
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: -78.10049585622843, vy: -24.30660955823481
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: -50.769332615596085, vy: -27.242344443563326
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: -73.64981904554021, vy: -24.526511657106226
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 69.28106542739646, vy: -97.79928522145649
+Ball authoritatively hit by sGMeMVUCClisuCVOAAAB via socket event. vx: 91.60222916940664, vy: -131.7038564935793
+Sid sGMeMVUCClisuCVOAAAB disconnected
+INFO:     127.0.0.1:54022 - "OPTIONS /auth/login HTTP/1.1" 200 OK
+2026-05-19 16:00:54,175 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-19 16:00:54,176 INFO sqlalchemy.engine.Engine SELECT users.id, users.username, users.nickname, users.email, users.hashed_password, users.is_active, users.mmr, users.created_at 
+FROM users 
+WHERE users.username = ?
+2026-05-19 16:00:54,176 INFO sqlalchemy.engine.Engine [cached since 289.3s ago] ('Test1',)
+INFO:     127.0.0.1:54022 - "POST /auth/login HTTP/1.1" 200 OK
+2026-05-19 16:00:54,471 INFO sqlalchemy.engine.Engine ROLLBACK

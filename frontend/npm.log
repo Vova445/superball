@@ -1,0 +1,17 @@
+
+> megaball-frontend@0.1.0 dev
+> next dev -p 3000
+
+   ▲ Next.js 14.1.0
+   - Local:        http://localhost:3000
+
+ ✓ Ready in 2.3s
+ ○ Compiling / ...
+ ✓ Compiled / in 686ms (430 modules)
+ ○ Compiling /game ...
+ ✓ Compiled /game in 932ms (557 modules)
+ ✓ Compiled /not-found in 239ms (562 modules)
+ ○ Compiling /login ...
+ ✓ Compiled /login in 1237ms (799 modules)
+ ✓ Compiled in 319ms (353 modules)
+[?25h
