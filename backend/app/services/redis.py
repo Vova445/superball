@@ -1,4 +1,5 @@
 import redis
+import time
 from app.core.config import settings
 
 class RedisService:
@@ -22,14 +23,52 @@ class RedisService:
             self.mock_zsets = {}
 
     def store_refresh_token(self, user_id: int, token: str, expires_days: int):
-        self._storage[f"refresh_token:{token}"] = str(user_id)
+        key = f"refresh_token:{token}"
+        ttl_seconds = expires_days * 24 * 60 * 60
+
+        if not self.use_mock:
+            try:
+                self.client.setex(key, ttl_seconds, str(user_id))
+                return
+            except Exception:
+                pass
+
+        self._storage[key] = {
+            "user_id": str(user_id),
+            "expires_at": time.time() + ttl_seconds,
+        }
 
     def get_user_id_from_refresh_token(self, token: str) -> str:
-        return self._storage.get(f"refresh_token:{token}")
+        key = f"refresh_token:{token}"
+
+        if not self.use_mock:
+            try:
+                return self.client.get(key)
+            except Exception:
+                pass
+
+        stored_token = self._storage.get(key)
+        if not stored_token:
+            return None
+
+        if stored_token["expires_at"] <= time.time():
+            del self._storage[key]
+            return None
+
+        return stored_token["user_id"]
 
     def delete_refresh_token(self, token: str):
-        if f"refresh_token:{token}" in self._storage:
-            del self._storage[f"refresh_token:{token}"]
+        key = f"refresh_token:{token}"
+
+        if not self.use_mock:
+            try:
+                self.client.delete(key)
+                return
+            except Exception:
+                pass
+
+        if key in self._storage:
+            del self._storage[key]
 
     def zadd(self, name: str, mapping: dict):
         if not self.use_mock:

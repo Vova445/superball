@@ -5,14 +5,16 @@ export const GAME_WIDTH = 1200;
 export const GAME_HEIGHT = 700;
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
-    type: Phaser.AUTO, // Дозволяємо системі обрати WebGL або Canvas
+    type: Phaser.AUTO,
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
     backgroundColor: '#0D0D1A',
     render: {
-        antialias: false,        // Вимикаємо для швидкості
-        pixelArt: true,          // Вимикаємо фільтрацію для продуктивності
-        desynchronized: true,    // Зменшує затримку введення
+        antialias: true,
+        antialiasGL: true,
+        pixelArt: false,
+        roundPixels: false,
+        desynchronized: true,
         powerPreference: 'high-performance'
     },
     physics: {
@@ -20,7 +22,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
         arcade: {
             gravity: { x: 0, y: 0 },
             debug: false,
-            fixedStep: false // Вимикаємо slow-mo ефект при падінні FPS
+            fixedStep: false
         }
     },
     fps: {
@@ -29,7 +31,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     },
     scene: [GameScene],
     scale: {
-        mode: Phaser.Scale.FIT,
+        mode: Phaser.Scale.ENVELOP,
         autoCenter: Phaser.Scale.CENTER_BOTH
     }
 };

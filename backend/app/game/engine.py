@@ -1,4 +1,8 @@
 import math
+
+PLAYER_RADIUS = 22
+BALL_RADIUS = 13
+
 class Vector2:
     def __init__(self, x=0.0, y=0.0):
         self.x = x
@@ -20,17 +24,23 @@ class Vector2:
         return self
 
 class PhysicsObject:
-    def __init__(self, x, y, radius):
+    def __init__(self, x, y, radius, mass=1.0):
         self.x = x
         self.y = y
+        self.prev_x = x
+        self.prev_y = y
         self.vx = 0.0
         self.vy = 0.0
         self.radius = radius
+        self.mass = mass
 
 class ServerPlayer(PhysicsObject):
-    def __init__(self, id, x, y):
-        super().__init__(x, y, 22)
+    def __init__(self, id, x, y, play_bounds=None):
+        super().__init__(x, y, PLAYER_RADIUS, mass=3.0)
         self.id = id
+        self.play_bounds = play_bounds or {"left": 160, "right": 1037, "top": 68, "bottom": 634}
+        self.bounds_radius_x = PLAYER_RADIUS
+        self.bounds_radius_y = PLAYER_RADIUS
         self.stamina = 100.0
         # Temporary global card stats: Loris Karius, Bronze GK.
         self.acceleration = 1650.0
@@ -40,6 +50,9 @@ class ServerPlayer(PhysicsObject):
         self.kick_force = 170.0
 
     def update(self, inputs, dt):
+        self.prev_x = self.x
+        self.prev_y = self.y
+
         # 1. Handle Normal Movement Inputs
         dx, dy = 0, 0
         if inputs.get('up'): dy -= 1
@@ -75,9 +88,19 @@ class ServerPlayer(PhysicsObject):
         self.x += self.vx * dt
         self.y += self.vy * dt
 
-        # 5. World Bounds (Mirroring Phaser)
-        self.x = max(28 + self.radius, min(1200 - 28 - self.radius, self.x))
-        self.y = max(60 + self.radius, min(700 - 60 - self.radius, self.y))
+        # 5. Keep the full player card/ring inside the white field lines.
+        min_x = self.play_bounds["left"] + self.bounds_radius_x
+        max_x = self.play_bounds["right"] - self.bounds_radius_x
+        min_y = self.play_bounds["top"] + self.bounds_radius_y
+        max_y = self.play_bounds["bottom"] - self.bounds_radius_y
+        clamped_x = max(min_x, min(max_x, self.x))
+        clamped_y = max(min_y, min(max_y, self.y))
+        if clamped_x != self.x:
+            self.vx = 0
+        if clamped_y != self.y:
+            self.vy = 0
+        self.x = clamped_x
+        self.y = clamped_y
 
         # 6. Stamina Consumption & Recovery
         stamina_consumption = 40.0
@@ -88,13 +111,17 @@ class ServerPlayer(PhysicsObject):
             self.stamina = min(100.0, self.stamina + stamina_recovery * dt)
 
 class ServerBall(PhysicsObject):
-    def __init__(self, x, y):
-        super().__init__(x, y, 22)
-        self.friction = 0.985
-        self.bounce = 0.75
+    def __init__(self, x, y, play_bounds=None):
+        super().__init__(x, y, BALL_RADIUS, mass=0.45)
+        self.play_bounds = play_bounds or {"left": 160, "right": 1037, "top": 68, "bottom": 634}
+        self.friction = 0.992
+        self.bounce = 0.68
         self.angular_velocity = 0.0
 
     def update(self, dt):
+        self.prev_x = self.x
+        self.prev_y = self.y
+
         # 1. Apply Velocity
         self.x += self.vx * dt
         self.y += self.vy * dt
@@ -104,13 +131,16 @@ class ServerBall(PhysicsObject):
         self.vx *= friction_factor
         self.vy *= friction_factor
 
-        # 3. Bounds + Bounce
-        if self.x < 28 + self.radius or self.x > 1200 - 28 - self.radius:
-            # Check if it's NOT a goal
-            if not (250 < self.y < 450):
-                self.vx *= -self.bounce
-                self.x = 28 + self.radius if self.x < 28 + self.radius else 1200 - 28 - self.radius
+        # 3. Bounds + Bounce. Keep the ball inside the visible field at all times.
+        min_x = self.play_bounds["left"] + self.radius
+        max_x = self.play_bounds["right"] - self.radius
+        min_y = self.play_bounds["top"] + self.radius
+        max_y = self.play_bounds["bottom"] - self.radius
 
-        if self.y < 60 + self.radius or self.y > 700 - 60 - self.radius:
+        if self.x < min_x or self.x > max_x:
+            self.vx *= -self.bounce
+            self.x = min_x if self.x < min_x else max_x
+
+        if self.y < min_y or self.y > max_y:
             self.vy *= -self.bounce
-            self.y = 60 + self.radius if self.y < 60 + self.radius else 700 - 60 - self.radius
+            self.y = min_y if self.y < min_y else max_y

@@ -46,7 +46,11 @@ async def connect(sid, environ, auth=None):
 @sio.event
 async def disconnect(sid):
     print(f"Sid {sid} disconnected")
-    session = await sio.get_session(sid)
+    try:
+        session = await sio.get_session(sid)
+    except KeyError:
+        session = None
+
     if session:
         room = session.get('room')
         user_id = session.get('user_id')
@@ -68,10 +72,18 @@ async def join_room(sid, data):
         user_id = session.get('user_id')
         
         await sio.save_session(sid, {'user_id': user_id, 'room': room})
+
+        # A finished room should not be reused. The frontend currently joins a
+        # stable room id, so rotate the server-side GameRoom when the old match
+        # is over before accepting fresh players.
+        existing_room = active_rooms.get(room)
+        if existing_room and existing_room.state == "FINISHED":
+            existing_room.is_running = False
+            del active_rooms[room]
         
         # Initialize or join room
         if room not in active_rooms:
-            game_room = GameRoom(room)
+            game_room = GameRoom(room, data.get('arena'))
             active_rooms[room] = game_room
             
             async def broadcast_callback(state):
@@ -84,7 +96,7 @@ async def join_room(sid, data):
                 except Exception as e:
                     print(f"Error running game room {room}: {e}")
                 finally:
-                    if room in active_rooms:
+                    if active_rooms.get(room) is game_room:
                         del active_rooms[room]
                         
             asyncio.create_task(run_room())

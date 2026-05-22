@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { Player } from '../objects/Player';
-import { Ball } from '../objects/Ball';
+import { Player, PLAYER_RING_RADIUS } from '../objects/Player';
+import { Ball, BALL_RADIUS } from '../objects/Ball';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getArenaById, getArenaForCups } from '../arenas';
 
 export class GameScene extends Phaser.Scene {
     private player!: Player;
@@ -30,20 +31,38 @@ export class GameScene extends Phaser.Scene {
     private opponents: Map<string, Player> = new Map();
     private targetBallX: number | undefined;
     private targetBallY: number | undefined;
+    private arenaId = 'village-field';
+    private playBounds = { left: 160, right: 1037, top: 68, bottom: 634 };
+    private lastMoveDirection = new Phaser.Math.Vector2(1, 0);
 
     constructor() {
         super('GameScene');
     }
 
     preload() {
-        this.load.image('field', '/assets/field.png');
+        const arenaId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('arena') : null;
+        const userMmr = useAuthStore.getState().user?.mmr ?? 0;
+        const arena = getArenaById(arenaId) ?? getArenaForCups(userMmr);
+
+        this.arenaId = arena.id;
+        this.playBounds = arena.playBounds;
+        this.load.image('field', arena.image);
         this.load.image('karius_card', '/assets/players/karius.png');
+        this.load.image('ball', '/assets/ball.png');
     }
 
     create() {
         const { width, height } = this.scale;
         this.isResetting = false;
         this.isGameStarted = false;
+
+        this.physics.world.setBounds(0, 0, width, height);
+        this.cameras.main.setBounds(0, 0, width, height);
+        this.cameras.main.setBackgroundColor('#0D0D1A');
+        this.cameras.main.setRoundPixels(false);
+        this.textures.get('field').setFilter(Phaser.Textures.FilterMode.LINEAR);
+        this.textures.get('karius_card').setFilter(Phaser.Textures.FilterMode.LINEAR);
+        this.textures.get('ball').setFilter(Phaser.Textures.FilterMode.LINEAR);
 
         this.generateTextures();
 
@@ -52,6 +71,7 @@ export class GameScene extends Phaser.Scene {
 
         // Initialize entities
         this.player = new Player(this, width / 2 - 200, height / 2);
+        this.player.setPlayBounds(this.playBounds);
         this.ball = new Ball(this, width / 2, height / 2);
         
         (this.ball.body as Phaser.Physics.Arcade.Body).setMass(0.2); 
@@ -93,7 +113,7 @@ export class GameScene extends Phaser.Scene {
         this.socket.on('connect', () => {
             console.log('Phaser connected to Socket.IO. SID:', this.socket.id);
             // Join default matchmaking / game room
-            this.socket.emit('join_room', { room: 'game-room-1' });
+            this.socket.emit('join_room', { room: 'game-room-1', arena: this.arenaId });
         });
 
         this.socket.on('game_state', (payload: any) => {
@@ -122,8 +142,8 @@ export class GameScene extends Phaser.Scene {
         // Initialize rendering once the first state is received
         if (!this.isGameStarted) {
             this.isGameStarted = true;
-            this.cameras.main.zoomTo(1.2, 1000, 'Power2');
-            this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+            this.cameras.main.zoomTo(1.9, 1000, 'Power2');
+            this.cameras.main.startFollow(this.player, false, 0.1, 0.1);
         }
 
         // Calculate and smooth clock offset
@@ -335,6 +355,7 @@ export class GameScene extends Phaser.Scene {
                 if (!this.opponents.has(sid)) {
                     // Create visual representation of opponent
                     const newOpponent = new Player(this, oppRight.x, oppRight.y, 'away');
+                    newOpponent.setPlayBounds(this.playBounds);
                     newOpponent.setAlpha(0.9);
                     if (newOpponent.body) {
                         (newOpponent.body as Phaser.Physics.Arcade.Body).enable = false; // Disable local physics updates
@@ -346,7 +367,11 @@ export class GameScene extends Phaser.Scene {
                 if (opponentObj) {
                     const oppX = oppLeft ? this.lerp(oppLeft.x, oppRight.x, alpha) : oppRight.x;
                     const oppY = oppLeft ? this.lerp(oppLeft.y, oppRight.y, alpha) : oppRight.y;
+                    const moveX = oppX - opponentObj.x;
+                    const moveY = oppY - opponentObj.y;
+
                     opponentObj.setPosition(oppX, oppY);
+                    opponentObj.faceDirection(moveX, moveY, this.game.loop.delta / 1000);
                     
                     if (typeof oppRight.stamina === 'number') {
                         opponentObj.stamina = oppRight.stamina;
@@ -464,10 +489,14 @@ export class GameScene extends Phaser.Scene {
     }
 
     update(time: number, delta: number) {
-        if (!this.isGameStarted) return;
+        if (!this.isGameStarted) {
+            this.updateUI(time);
+            return;
+        }
         
         // 1. Process client input and locally predict player physics
         const inputs = this.player.update(this.cursors, this.shiftKey, this.spaceKey, delta);
+        this.updateMoveDirection(inputs);
         
         // Space is only a kick action.
         if (inputs.kick) {
@@ -483,8 +512,11 @@ export class GameScene extends Phaser.Scene {
         const prevBallX = this.ball.x;
         const prevBallY = this.ball.y;
         if (this.targetBallX !== undefined && this.targetBallY !== undefined) {
-            this.ball.x = this.lerp(this.ball.x, this.targetBallX, 0.3);
-            this.ball.y = this.lerp(this.ball.y, this.targetBallY, 0.3);
+            const serverDist = Phaser.Math.Distance.Between(this.ball.x, this.ball.y, this.targetBallX, this.targetBallY);
+            const syncFactor = serverDist > 90 ? 1 : 0.65;
+            this.ball.x = this.lerp(this.ball.x, this.targetBallX, syncFactor);
+            this.ball.y = this.lerp(this.ball.y, this.targetBallY, syncFactor);
+            this.keepVisualBallPhysical();
             
             // Visual rotation based on displacement
             const dx = this.ball.x - prevBallX;
@@ -504,37 +536,99 @@ export class GameScene extends Phaser.Scene {
         if (!this.socket || !this.socket.connected) return;
 
         const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.ball.x, this.ball.y);
-        const hitRange = 22 + 22 + 20; // Karius GK radius + ball radius + threshold
+        const hitRange = PLAYER_RING_RADIUS + BALL_RADIUS + 18; // ring radius + ball radius + input forgiveness
         
         if (dist <= hitRange) {
-            const pointer = this.input.activePointer;
-            const worldPoint = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
-            
-            let dx = worldPoint.x - this.player.x;
-            let dy = worldPoint.y - this.player.y;
-            const len = Math.sqrt(dx * dx + dy * dy);
-            
-            if (len > 0) {
-                dx /= len;
-                dy /= len;
-            } else {
-                dx = this.ball.x - this.player.x;
-                dy = this.ball.y - this.player.y;
-                const lenBall = Math.sqrt(dx * dx + dy * dy);
-                if (lenBall > 0) {
-                    dx /= lenBall;
-                    dy /= lenBall;
-                } else {
-                    dx = 1;
-                    dy = 0;
-                }
-            }
+            const direction = this.getKickDirection();
 
             this.socket.emit('ball_hit', {
-                dx: dx,
-                dy: dy
+                dx: direction.x,
+                dy: direction.y
             });
         }
+    }
+
+    private updateMoveDirection(inputs: { up: boolean; down: boolean; left: boolean; right: boolean }) {
+        const dx = Number(inputs.right) - Number(inputs.left);
+        const dy = Number(inputs.down) - Number(inputs.up);
+
+        if (dx !== 0 || dy !== 0) {
+            this.lastMoveDirection.set(dx, dy).normalize();
+        }
+    }
+
+    private getKickDirection() {
+        const contactDirection = new Phaser.Math.Vector2(
+            this.ball.x - this.player.x,
+            this.ball.y - this.player.y
+        );
+
+        return contactDirection.lengthSq() > 0
+            ? contactDirection.normalize()
+            : this.lastMoveDirection.clone().normalize();
+    }
+
+    private keepVisualBallPhysical() {
+        const players = [this.player, ...Array.from(this.opponents.values())];
+        const minDist = PLAYER_RING_RADIUS + BALL_RADIUS + 1.5;
+
+        for (let i = 0; i < 2; i++) {
+            this.clampVisualBallToPlayBounds();
+
+            for (const player of players) {
+                const dx = this.ball.x - player.x;
+                const dy = this.ball.y - player.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < minDist) {
+                    const actualDist = dist === 0 ? 1 : dist;
+                    const nx = dx / actualDist;
+                    const ny = dy / actualDist;
+                    const overlap = minDist - dist;
+
+                    // 1. Push ball away
+                    const ballBeforeX = this.ball.x;
+                    const ballBeforeY = this.ball.y;
+                    this.ball.x += nx * overlap;
+                    this.ball.y += ny * overlap;
+
+                    // Clamp ball to bounds
+                    this.clampVisualBallToPlayBounds();
+
+                    // Calculate how much the ball actually moved
+                    const ballMovedX = this.ball.x - ballBeforeX;
+                    const ballMovedY = this.ball.y - ballBeforeY;
+                    const ballMovedNormal = ballMovedX * nx + ballMovedY * ny;
+                    const remainingOverlap = overlap - ballMovedNormal;
+
+                    // 2. Push player back by the remaining overlap
+                    if (remainingOverlap > 0 && player === this.player) {
+                        player.x -= nx * remainingOverlap;
+                        player.y -= ny * remainingOverlap;
+
+                        // Clamp player to bounds
+                        if (typeof player.clampToPlayBounds === 'function') {
+                            player.clampToPlayBounds();
+                        }
+                    }
+                }
+            }
+        }
+
+        this.clampVisualBallToPlayBounds();
+    }
+
+    private clampVisualBallToPlayBounds() {
+        this.ball.x = Phaser.Math.Clamp(
+            this.ball.x,
+            this.playBounds.left + BALL_RADIUS,
+            this.playBounds.right - BALL_RADIUS
+        );
+        this.ball.y = Phaser.Math.Clamp(
+            this.ball.y,
+            this.playBounds.top + BALL_RADIUS,
+            this.playBounds.bottom - BALL_RADIUS
+        );
     }
 
 

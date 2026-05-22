@@ -34,7 +34,7 @@ async def startup_event():
 
         try:
             from sqlalchemy import text
-            await conn.execute(text("ALTER TABLE users ADD COLUMN mmr INTEGER DEFAULT 1000"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN mmr INTEGER DEFAULT 0"))
         except Exception:
             pass
     print("Database tables initialized successfully.")

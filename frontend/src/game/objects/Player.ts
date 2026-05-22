@@ -1,18 +1,22 @@
 import Phaser from 'phaser';
 
 type PlayerTeam = 'home' | 'away';
+type PlayBounds = { left: number; right: number; top: number; bottom: number };
+
+export const PLAYER_RING_RADIUS = 22;
 
 const KARIUS_BRONZE_GK = {
     acceleration: 1650,
     maxSpeedNormal: 235,
     maxSpeedSprint: 350,
     kickForce: 170,
-    ringRadius: 42,
-    cardWidth: 76,
-    cardHeight: 88,
-    hitboxWidth: 46,
-    hitboxHeight: 52,
+    ringRadius: PLAYER_RING_RADIUS,
+    cardWidth: 54,
+    cardHeight: 64,
 };
+
+const MIN_FACING_SPEED = 8;
+const FACING_TURN_DURATION = 160;
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
     private acceleration: number = KARIUS_BRONZE_GK.acceleration;
@@ -25,6 +29,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     private maxStamina: number = 100;
     private staminaConsumption: number = 40;
     private staminaRecovery: number = 20;
+    private playBounds?: PlayBounds;
+    private baseScaleX: number = 1;
+    private facingSign: 1 | -1 = 1;
+    private facingTween?: Phaser.Tweens.Tween;
 
     private teamRing: Phaser.GameObjects.Arc;
 
@@ -40,11 +48,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         scene.physics.add.existing(this);
 
         this.setDisplaySize(KARIUS_BRONZE_GK.cardWidth, KARIUS_BRONZE_GK.cardHeight);
+        this.baseScaleX = Math.abs(this.scaleX);
         this.setDepth(9);
-        this.setSize(KARIUS_BRONZE_GK.hitboxWidth, KARIUS_BRONZE_GK.hitboxHeight);
-        this.setOffset(
-            (this.width - KARIUS_BRONZE_GK.hitboxWidth) / 2,
-            (this.height - KARIUS_BRONZE_GK.hitboxHeight) / 2
+        const bodyRadius = KARIUS_BRONZE_GK.ringRadius / Math.abs(this.scaleX);
+        const bodyDiameter = bodyRadius * 2;
+        this.setCircle(
+            bodyRadius,
+            (this.width - bodyDiameter) / 2,
+            (this.height - bodyDiameter) / 2
         );
         this.setCollideWorldBounds(true);
         
@@ -109,9 +120,54 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         } else {
             this.stamina = Math.min(this.maxStamina, this.stamina + this.staminaRecovery * dt);
         }
+
+        this.clampToPlayBounds();
+        this.faceDirection(body.velocity.x, body.velocity.y, dt);
+    }
+
+    public faceDirection(dx: number, _dy: number, _dt: number) {
+        if (Math.abs(dx) < MIN_FACING_SPEED) return;
+
+        const targetSign = dx > 0 ? 1 : -1;
+        if (targetSign === this.facingSign) return;
+
+        this.facingSign = targetSign;
+        this.facingTween?.stop();
+        this.facingTween = this.scene.tweens.add({
+            targets: this,
+            scaleX: this.baseScaleX * targetSign,
+            duration: FACING_TURN_DURATION,
+            ease: 'Sine.easeInOut',
+        });
+    }
+
+    public setPlayBounds(bounds: PlayBounds) {
+        this.playBounds = bounds;
+        this.clampToPlayBounds();
+    }
+
+    public clampToPlayBounds() {
+        if (!this.playBounds) return;
+
+        const body = this.body as Phaser.Physics.Arcade.Body | null;
+        const nextX = Phaser.Math.Clamp(
+            this.x,
+            this.playBounds.left + KARIUS_BRONZE_GK.ringRadius,
+            this.playBounds.right - KARIUS_BRONZE_GK.ringRadius
+        );
+        const nextY = Phaser.Math.Clamp(
+            this.y,
+            this.playBounds.top + KARIUS_BRONZE_GK.ringRadius,
+            this.playBounds.bottom - KARIUS_BRONZE_GK.ringRadius
+        );
+
+        if (nextX !== this.x && body) body.velocity.x = 0;
+        if (nextY !== this.y && body) body.velocity.y = 0;
+        this.setPosition(nextX, nextY);
     }
 
     destroy(fromScene?: boolean) {
+        this.facingTween?.stop();
         this.teamRing.destroy(fromScene);
         super.destroy(fromScene);
     }

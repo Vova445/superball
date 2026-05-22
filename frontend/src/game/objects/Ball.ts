@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+export const BALL_RADIUS = 13;
+
 export class Ball extends Phaser.Physics.Arcade.Sprite {
     private friction: number = 0.985;
     private wallBounce: number = 0.75;
@@ -8,12 +10,14 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     private spinFactor: number = 0.02;
 
     constructor(scene: Phaser.Scene, x: number, y: number) {
-        super(scene, x, y, 'ball_texture');
+        super(scene, x, y, 'ball');
         
         scene.add.existing(this);
         scene.physics.add.existing(this);
 
-        this.setCircle(22);
+        this.setDisplaySize(BALL_RADIUS * 2, BALL_RADIUS * 2);
+        this.setDepth(10);
+        this.setCircle(BALL_RADIUS);
         
         // Disable physics body to prevent local prediction/simulation
         const body = this.body as Phaser.Physics.Arcade.Body;

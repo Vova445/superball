@@ -27,7 +27,7 @@ export default function RegisterPage() {
     try {
       const response = await api.post('/auth/register', formData);
       setAuth(
-        { id: 0, username: formData.username, nickname: formData.nickname, email: formData.email },
+        { id: 0, username: formData.username, nickname: formData.nickname, email: formData.email, mmr: 0 },
         response.data.access_token,
         response.data.refresh_token
       );

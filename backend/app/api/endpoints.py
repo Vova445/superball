@@ -24,7 +24,7 @@ async def join_matchmaking(
     current_user: User = Depends(get_current_user)
 ):
     user_id = str(current_user.id)
-    user_mmr = getattr(current_user, "mmr", 1000) or 1000
+    user_mmr = current_user.mmr if current_user.mmr is not None else 0
     
     join_times[user_id] = time.time()
     redis_service.zadd("matchmaking_queue", {user_id: user_mmr})

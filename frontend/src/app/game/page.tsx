@@ -19,16 +19,16 @@ const GameContainer = dynamic(() => import('@/components/Game/GameContainer'), {
 });
 
 export default function GamePage() {
-    const { accessToken } = useAuthStore();
+    const { accessToken, hasHydrated } = useAuthStore();
     const router = useRouter();
 
     useEffect(() => {
-        if (!accessToken) {
+        if (hasHydrated && !accessToken) {
             router.push('/login');
         }
-    }, [accessToken, router]);
+    }, [accessToken, hasHydrated, router]);
 
-    if (!accessToken) {
+    if (!hasHydrated || !accessToken) {
         return null;
     }
 

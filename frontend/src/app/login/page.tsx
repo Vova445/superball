@@ -23,7 +23,7 @@ export default function LoginPage() {
     try {
       const response = await api.post('/auth/login', formData);
       setAuth(
-        { id: 0, username: formData.username, nickname: formData.username, email: '' },
+        { id: 0, username: formData.username, nickname: formData.username, email: '', mmr: 0 },
         response.data.access_token,
         response.data.refresh_token
       );
