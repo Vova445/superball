@@ -26,6 +26,7 @@ module.exports = {
           muted: "#6B6B8A",
         },
         rarity: {
+          bronze: "#A0673E",
           common: "#888888",
           rare: "#378ADD",
           epic: "#7F77DD",

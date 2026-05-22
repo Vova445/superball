@@ -3,6 +3,7 @@ import { cn } from '@/lib/cn';
 
 export type BadgeVariant =
   | 'default'
+  | 'bronze'
   | 'common'
   | 'rare'
   | 'epic'
@@ -15,6 +16,7 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 
 const variantStyles: Record<BadgeVariant, string> = {
   default: 'bg-megaball-surface border-megaball-border text-white/80',
+  bronze: 'bg-rarity-bronze/20 border-rarity-bronze text-rarity-bronze',
   common: 'bg-rarity-common/20 border-rarity-common text-rarity-common',
   rare: 'bg-rarity-rare/20 border-rarity-rare text-rarity-rare',
   epic: 'bg-rarity-epic/20 border-rarity-epic text-rarity-epic',

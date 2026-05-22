@@ -8,7 +8,7 @@ import { rarityGlowClass, rarityToBadge } from '@/lib/rarityStyles';
 import type { EquipSlot, InventoryItem, ItemRarity, ItemType } from '@/types/game';
 
 const TYPES: Array<ItemType | 'all'> = ['all', 'skin', 'ball', 'trail', 'emote', 'badge'];
-const RARITIES: Array<ItemRarity | 'all'> = ['all', 'common', 'rare', 'epic', 'legendary', 'mythic'];
+const RARITIES: Array<ItemRarity | 'all'> = ['all', 'bronze', 'common', 'rare', 'epic', 'legendary', 'mythic'];
 
 export function InventoryScreen() {
   const [items, setItems] = useState(MOCK_INVENTORY);
@@ -69,7 +69,15 @@ export function InventoryScreen() {
                 <span className="font-orbitron text-[10px] uppercase text-white/40 w-12">{slot}</span>
                 {item ? (
                   <>
-                    <span className="text-2xl">{item.icon}</span>
+                    {item.imageUrl ? (
+                      <img
+                        src={item.imageUrl}
+                        alt=""
+                        className="h-14 w-10 rounded-md object-cover shadow-neon-purple"
+                      />
+                    ) : (
+                      <span className="text-2xl">{item.icon}</span>
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{item.name}</p>
                       <Badge variant={rarityToBadge(item.rarity)} className="mt-1">
@@ -108,13 +116,21 @@ export function InventoryScreen() {
                 dragId === item.id && 'opacity-50'
               )}
             >
-              <div className="text-center text-3xl">{item.icon}</div>
+              {item.imageUrl ? (
+                <div className="mx-auto flex aspect-[3/4] max-h-40 items-center justify-center overflow-hidden rounded-arcade border border-megaball-purple/40 bg-megaball-dark/70">
+                  <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
+                </div>
+              ) : (
+                <div className="text-center text-3xl">{item.icon}</div>
+              )}
               <p className="mt-2 truncate text-center text-sm font-semibold">{item.name}</p>
               <div className="mt-2 flex justify-center">
                 <Badge variant={rarityToBadge(item.rarity)}>{item.rarity}</Badge>
               </div>
               {item.equipped && (
-                <p className="mt-1 text-center font-orbitron text-[10px] uppercase text-megaball-cyan">Equipped</p>
+                <p className="mt-2 text-center font-orbitron text-[10px] uppercase text-megaball-cyan">
+                  Equipped
+                </p>
               )}
             </div>
           ))}

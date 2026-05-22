@@ -59,16 +59,12 @@ class GameRoom:
                                     sb = float(bonus["speed"])
                                     player.max_speed_normal += sb
                                     player.max_speed_sprint += sb
-                                    player.dash_speed += sb
                                 # Kick force bonus
                                 if "kick" in bonus:
                                     kb = float(bonus["kick"])
                                     if not hasattr(player, 'kick_force'):
-                                        player.kick_force = 200.0
-                                    if not hasattr(player, 'dash_kick_force'):
-                                        player.dash_kick_force = 450.0
+                                        player.kick_force = 170.0
                                     player.kick_force += kb
-                                    player.dash_kick_force += kb
                             except Exception as e:
                                 print(f"Error parsing stats_bonus for item {item.id}: {e}")
             except Exception as e:
@@ -78,7 +74,7 @@ class GameRoom:
         
         self.inputs[socket_id] = {
             "up": False, "down": False, "left": False, "right": False,
-            "sprint": False, "dash": False
+            "sprint": False, "kick": False
         }
 
     def remove_player(self, socket_id):
@@ -439,7 +435,7 @@ class GameRoom:
         nx, ny = dx/dist, dy/dist # Normal vector
         
         # Simple kick force (can be expanded with exact conservation laws)
-        force = getattr(player, 'dash_kick_force', 450.0) if player.is_dashing else getattr(player, 'kick_force', 200.0)
+        force = getattr(player, 'kick_force', 170.0)
         
         ball.vx = nx * force + player.vx * 0.4
         ball.vy = ny * force + player.vy * 0.4
@@ -474,8 +470,7 @@ class GameRoom:
                 dir_x, dir_y = 1.0, 0.0
                 
         # Calculate force
-        is_dashing = hit_data.get('is_dashing', False)
-        force = getattr(player, 'dash_kick_force', 450.0) if is_dashing else getattr(player, 'kick_force', 200.0)
+        force = getattr(player, 'kick_force', 170.0)
         
         # Apply velocity change to ball
         self.ball.vx = dir_x * force + player.vx * 0.4

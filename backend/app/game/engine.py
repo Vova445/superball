@@ -1,6 +1,4 @@
 import math
-import time
-
 class Vector2:
     def __init__(self, x=0.0, y=0.0):
         self.x = x
@@ -31,59 +29,18 @@ class PhysicsObject:
 
 class ServerPlayer(PhysicsObject):
     def __init__(self, id, x, y):
-        super().__init__(x, y, 20)
+        super().__init__(x, y, 22)
         self.id = id
         self.stamina = 100.0
-        self.acceleration = 2000.0
+        # Temporary global card stats: Loris Karius, Bronze GK.
+        self.acceleration = 1650.0
         self.friction = 0.95
-        self.max_speed_normal = 300.0
-        self.max_speed_sprint = 480.0
-        self.dash_speed = 600.0
-        self.is_dashing = False
-        
-        self.dash_cooldown = 1.5  # seconds
-        self.last_dash_time = 0.0
-        self.dash_duration = 0.15  # seconds
-        self.dash_timer = 0.0
+        self.max_speed_normal = 235.0
+        self.max_speed_sprint = 350.0
+        self.kick_force = 170.0
 
     def update(self, inputs, dt):
-        # 1. Update Dash Timer
-        if self.is_dashing:
-            self.dash_timer -= dt
-            if self.dash_timer <= 0:
-                self.is_dashing = False
-            else:
-                # Apply velocity while dashing
-                self.x += self.vx * dt
-                self.y += self.vy * dt
-                self.x = max(28 + self.radius, min(1200 - 28 - self.radius, self.x))
-                self.y = max(60 + self.radius, min(700 - 60 - self.radius, self.y))
-                return
-
-        # 2. Check Dash Trigger
-        if inputs.get('dash') and not self.is_dashing:
-            current_time = time.time()
-            if current_time > self.last_dash_time + self.dash_cooldown:
-                self.is_dashing = True
-                self.dash_timer = self.dash_duration
-                self.last_dash_time = current_time
-                
-                # Dash direction: current velocity direction, or default to right (1, 0)
-                speed = math.sqrt(self.vx**2 + self.vy**2)
-                if speed > 0:
-                    self.vx = (self.vx / speed) * self.dash_speed
-                    self.vy = (self.vy / speed) * self.dash_speed
-                else:
-                    self.vx = self.dash_speed
-                    self.vy = 0.0
-                
-                self.x += self.vx * dt
-                self.y += self.vy * dt
-                self.x = max(28 + self.radius, min(1200 - 28 - self.radius, self.x))
-                self.y = max(60 + self.radius, min(700 - 60 - self.radius, self.y))
-                return
-
-        # 3. Handle Normal Movement Inputs
+        # 1. Handle Normal Movement Inputs
         dx, dy = 0, 0
         if inputs.get('up'): dy -= 1
         if inputs.get('down'): dy += 1
@@ -102,27 +59,27 @@ class ServerPlayer(PhysicsObject):
             self.vx += dx * self.acceleration * dt
             self.vy += dy * self.acceleration * dt
 
-        # 4. Friction
+        # 2. Friction
         friction_factor = math.pow(self.friction, dt * 60)
         self.vx *= friction_factor
         self.vy *= friction_factor
 
-        # 5. Cap Speed
+        # 3. Cap Speed
         speed = math.sqrt(self.vx**2 + self.vy**2)
         if speed > max_speed:
             ratio = max_speed / speed
             self.vx *= ratio
             self.vy *= ratio
 
-        # 6. Apply Velocity
+        # 4. Apply Velocity
         self.x += self.vx * dt
         self.y += self.vy * dt
 
-        # 7. World Bounds (Mirroring Phaser)
+        # 5. World Bounds (Mirroring Phaser)
         self.x = max(28 + self.radius, min(1200 - 28 - self.radius, self.x))
         self.y = max(60 + self.radius, min(700 - 60 - self.radius, self.y))
 
-        # 8. Stamina Consumption & Recovery
+        # 6. Stamina Consumption & Recovery
         stamina_consumption = 40.0
         stamina_recovery = 20.0
         if is_sprinting and (dx != 0 or dy != 0):

@@ -110,7 +110,7 @@ export default function LoginPage() {
                   />
                   Запам'ятати мене
                 </label>
-                <Link href="/login" className="text-megaball-cyan transition hover:text-white">
+                <Link href="/forgot-password" className="text-megaball-cyan transition hover:text-white">
                   Забули пароль?
                 </Link>
               </div>

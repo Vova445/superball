@@ -1,4 +1,4 @@
-export type ItemRarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
+export type ItemRarity = 'bronze' | 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
 export type ItemType = 'skin' | 'emote' | 'trail' | 'ball' | 'badge';
 export type EquipSlot = 'skin' | 'emote' | 'trail' | 'ball';
 export type ShopTab = 'skins' | 'emotes' | 'battlepass';
@@ -9,6 +9,7 @@ export interface InventoryItem {
   type: ItemType;
   rarity: ItemRarity;
   icon: string;
+  imageUrl?: string;
   equipped?: boolean;
 }
 

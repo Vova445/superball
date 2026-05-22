@@ -10,7 +10,6 @@ export class GameScene extends Phaser.Scene {
     private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     private shiftKey!: Phaser.Input.Keyboard.Key;
     private staminaBar!: Phaser.GameObjects.Graphics;
-    private dashBar!: Phaser.GameObjects.Graphics;
     private score = { home: 0, away: 0 };
     private scoreText!: Phaser.GameObjects.Text;
     private goalText!: Phaser.GameObjects.Text;
@@ -38,6 +37,7 @@ export class GameScene extends Phaser.Scene {
 
     preload() {
         this.load.image('field', '/assets/field.png');
+        this.load.image('karius_card', '/assets/players/karius.png');
     }
 
     create() {
@@ -334,8 +334,8 @@ export class GameScene extends Phaser.Scene {
             if (oppRight) {
                 if (!this.opponents.has(sid)) {
                     // Create visual representation of opponent
-                    const newOpponent = new Player(this, oppRight.x, oppRight.y);
-                    newOpponent.setTint(0xff5555); // Tint red for identification
+                    const newOpponent = new Player(this, oppRight.x, oppRight.y, 'away');
+                    newOpponent.setAlpha(0.9);
                     if (newOpponent.body) {
                         (newOpponent.body as Phaser.Physics.Arcade.Body).enable = false; // Disable local physics updates
                     }
@@ -414,7 +414,6 @@ export class GameScene extends Phaser.Scene {
     private initUI() {
         const { width, height } = this.scale;
         this.staminaBar = this.add.graphics().setScrollFactor(0).setDepth(2000);
-        this.dashBar = this.add.graphics().setScrollFactor(0).setDepth(2000);
         
         this.scoreText = this.add.text(width / 2, 35, '0 : 0', {
             fontFamily: 'Arial Black', fontSize: '32px', color: '#ffffff',
@@ -468,10 +467,10 @@ export class GameScene extends Phaser.Scene {
         if (!this.isGameStarted) return;
         
         // 1. Process client input and locally predict player physics
-        const inputs = this.player.update(this.cursors, this.shiftKey, this.spaceKey, time, delta);
+        const inputs = this.player.update(this.cursors, this.shiftKey, this.spaceKey, delta);
         
-        // Trigger kick if Space (dash) was pressed
-        if (inputs.dash) {
+        // Space is only a kick action.
+        if (inputs.kick) {
             this.tryKickBall();
         }
 
@@ -505,7 +504,7 @@ export class GameScene extends Phaser.Scene {
         if (!this.socket || !this.socket.connected) return;
 
         const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.ball.x, this.ball.y);
-        const hitRange = 20 + 22 + 20; // player radius + ball radius + threshold
+        const hitRange = 22 + 22 + 20; // Karius GK radius + ball radius + threshold
         
         if (dist <= hitRange) {
             const pointer = this.input.activePointer;
@@ -533,8 +532,7 @@ export class GameScene extends Phaser.Scene {
 
             this.socket.emit('ball_hit', {
                 dx: dx,
-                dy: dy,
-                is_dashing: this.player.isDashing
+                dy: dy
             });
         }
     }
@@ -553,11 +551,5 @@ export class GameScene extends Phaser.Scene {
         this.staminaBar.fillStyle(this.player.stamina > 20 ? 0x3498db : 0xe74c3c, 1);
         this.staminaBar.fillRect(12, 45, Math.max(0, this.player.stamina), 8);
 
-        const dashProgress = this.player.getDashProgress(time);
-        this.dashBar.clear();
-        this.dashBar.fillStyle(0x000000, 0.5);
-        this.dashBar.fillRect(12, 58, 100, 4);
-        this.dashBar.fillStyle(dashProgress === 1 ? 0x2ecc71 : 0xf1c40f, 1);
-        this.dashBar.fillRect(12, 58, dashProgress * 100, 4);
     }
 }
