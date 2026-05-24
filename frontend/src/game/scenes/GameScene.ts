@@ -5,6 +5,8 @@ import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/store/useAuthStore';
 import { getArenaById, getArenaForCups } from '../arenas';
 
+const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+
 export class GameScene extends Phaser.Scene {
     private player!: Player;
     private ball!: Ball;
@@ -34,6 +36,10 @@ export class GameScene extends Phaser.Scene {
     private arenaId = 'village-field';
     private playBounds = { left: 160, right: 1037, top: 68, bottom: 634 };
     private lastMoveDirection = new Phaser.Math.Vector2(1, 0);
+    private matchState: string = 'LOBBY';
+    private matchTimer: number = 180;
+    private rewardInfo: any = null;
+    private playerCount: number = 1;
 
     constructor() {
         super('GameScene');
@@ -48,7 +54,7 @@ export class GameScene extends Phaser.Scene {
         this.playBounds = arena.playBounds;
         this.load.image('field', arena.image);
         this.load.image('karius_card', '/assets/players/karius.png');
-        this.load.image('ball', '/assets/ball.png');
+        this.load.svg('ball', '/assets/ball.svg');
     }
 
     create() {
@@ -105,7 +111,7 @@ export class GameScene extends Phaser.Scene {
     private connectSocket() {
         const token = useAuthStore.getState().accessToken;
 
-        this.socket = io('http://localhost:8000', {
+        this.socket = io(SOCKET_URL, {
             auth: { token: token },
             transports: ['websocket', 'polling']
         });
@@ -131,6 +137,7 @@ export class GameScene extends Phaser.Scene {
 
     private handleGameState(payload: any) {
         if (!payload) return;
+        this.playerCount = payload.player_count ?? Object.keys(payload.players || {}).length;
 
         if (payload.ball) {
             this.targetBallX = payload.ball.x;
@@ -206,11 +213,15 @@ export class GameScene extends Phaser.Scene {
 
         // Update Match UI state from server state
         if (payload.match_state !== undefined) {
-            this.updateMatchStateUI(payload.match_state, payload.timer || 0, payload.countdown || 0, payload.reward_info);
+            this.updateMatchStateUI(payload.match_state, payload.timer ?? this.matchTimer, payload.countdown || 0, payload.reward_info);
         }
     }
 
     private updateMatchStateUI(matchState: string, timer: number, countdown: number, rewardInfo: any) {
+        this.matchState = matchState;
+        this.matchTimer = timer;
+        this.rewardInfo = rewardInfo;
+
         // 1. Handle Countdown
         if (matchState === 'COUNTDOWN') {
             this.countdownText.setVisible(true);
@@ -229,59 +240,15 @@ export class GameScene extends Phaser.Scene {
         } else if (matchState === 'OVERTIME') {
             this.statusText.setText('OVERTIME! NEXT GOAL WINS!').setVisible(true);
         } else if (matchState === 'FINISHED') {
-            this.statusText.setText('MATCH FINISHED!').setVisible(true);
+            this.statusText.setVisible(false);
         } else {
             this.statusText.setVisible(false);
         }
 
-        // 3. Handle Timer
-        if (matchState === 'PLAYING' || matchState === 'OVERTIME') {
-            const minutes = Math.floor(timer / 60);
-            const seconds = timer % 60;
-            const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            this.timerText.setText(timeStr).setVisible(true);
-        } else {
-            this.timerText.setVisible(false);
-        }
+        this.timerText.setVisible(false);
+        this.rewardText.setVisible(false);
 
-        // 4. Handle Reward Display on Finished
-        if (matchState === 'FINISHED' && rewardInfo) {
-            let displayStr = '🏆 MATCH OVER 🏆\n\n';
-            const rewards = rewardInfo.rewards || {};
-            let rewardItems = [];
-            for (const [uid, r] of Object.entries(rewards) as [string, any][]) {
-                const winStatus = r.is_winner ? '🏅 WINNER' : '🥈 RUNNER-UP';
-                let mmrInfo = '';
-                if (r.new_mmr !== undefined) {
-                    const deltaStr = r.mmr_delta >= 0 ? `+${r.mmr_delta}` : `${r.mmr_delta}`;
-                    mmrInfo = `\nRank: ${r.rank}  |  MMR: ${r.new_mmr} (${deltaStr})`;
-                }
-                let progInfo = '';
-                if (r.level !== undefined) {
-                    progInfo = `\nLevel: ${r.level}  (XP: ${r.xp_balance}/${r.xp_needed})`;
-                    if (r.level_up) {
-                        progInfo += `\n🎉 LEVEL UP! Level ${r.level} reached!`;
-                        if (r.level_up_rewards && r.level_up_rewards.length > 0) {
-                            const rewardDetail = r.level_up_rewards.map((reward: any) => {
-                                if (reward.type === 'coins') return `+${reward.amount} Coins 🪙`;
-                                if (reward.type === 'gems') return `+${reward.amount} Gems 💎`;
-                                return `Skin: "${reward.name}" 👕`;
-                            }).join(', ');
-                            progInfo += `\nRewards: ${rewardDetail}`;
-                        }
-                    }
-                }
-                rewardItems.push(`${winStatus}\nCoins: +${r.coins}  |  XP: +${r.xp}${mmrInfo}${progInfo}`);
-            }
-            if (rewardItems.length > 0) {
-                displayStr += rewardItems.join('\n\n---\n\n');
-            } else {
-                displayStr += 'No rewards recorded.';
-            }
-            this.rewardText.setText(displayStr).setVisible(true);
-        } else {
-            this.rewardText.setVisible(false);
-        }
+        this.dispatchMatchUI();
     }
 
     private triggerGoalEffect(team: 'home' | 'away') {
@@ -443,7 +410,7 @@ export class GameScene extends Phaser.Scene {
         this.scoreText = this.add.text(width / 2, 35, '0 : 0', {
             fontFamily: 'Arial Black', fontSize: '32px', color: '#ffffff',
             stroke: '#000000', strokeThickness: 6
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(3000);
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(3000).setVisible(false);
 
         this.goalText = this.add.text(width / 2, height / 2, 'GOAL!', {
             fontFamily: 'Arial Black', fontSize: '100px', color: '#f1c40f',
@@ -475,10 +442,52 @@ export class GameScene extends Phaser.Scene {
         }).setOrigin(0.5).setScrollFactor(0).setDepth(4500).setVisible(false);
 
         this.initFPSCounter();
+        this.dispatchMatchUI();
     }
 
     private updateScoreUI() {
         this.scoreText.setText(`${this.score.home} : ${this.score.away}`);
+        this.dispatchMatchUI();
+    }
+
+    private dispatchMatchUI() {
+        if (typeof window === 'undefined') return;
+
+        window.dispatchEvent(new CustomEvent('megaball:match-ui', {
+            detail: {
+                homeScore: this.score.home,
+                awayScore: this.score.away,
+                timer: this.matchTimer,
+                matchState: this.matchState,
+                playerCount: this.playerCount,
+                rewards: this.buildRewardItems(this.rewardInfo)
+            }
+        }));
+    }
+
+    private buildRewardItems(rewardInfo: any) {
+        const rewards = rewardInfo?.rewards || {};
+
+        return Object.entries(rewards).map(([uid, value]) => {
+            const reward = value as any;
+            const bonuses = (reward.level_up_rewards || []).map((bonus: any) => {
+                if (bonus.type === 'coins') return `+${bonus.amount} coins`;
+                if (bonus.type === 'gems') return `+${bonus.amount} gems`;
+                return bonus.name ? `Skin: ${bonus.name}` : 'New reward';
+            });
+
+            return {
+                id: uid,
+                title: reward.is_winner ? 'Winner' : 'Runner-up',
+                coins: reward.coins,
+                xp: reward.xp,
+                mmrDelta: reward.mmr_delta,
+                rank: reward.rank,
+                level: reward.level,
+                levelUp: reward.level_up,
+                bonuses
+            };
+        });
     }
 
     private initFPSCounter() {

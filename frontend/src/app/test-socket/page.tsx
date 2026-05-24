@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/store/useAuthStore';
 
+const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+
 export default function SocketTestPage() {
   const { accessToken, user } = useAuthStore();
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -13,8 +15,8 @@ export default function SocketTestPage() {
   useEffect(() => {
     if (!accessToken) return;
 
-    console.log('Attempting to connect to socket at http://localhost:8000 with token:', accessToken?.substring(0, 10) + '...');
-    const newSocket = io('http://localhost:8000', {
+    console.log('Attempting to connect to socket at', SOCKET_URL, 'with token:', accessToken?.substring(0, 10) + '...');
+    const newSocket = io(SOCKET_URL, {
       auth: { token: accessToken },
       // let it try polling first if websocket fails
     });

@@ -487,7 +487,7 @@ class GameRoom:
             before_x, before_y = ball.x, ball.y
             ball.x += nx * overlap
             ball.y += ny * overlap
-            self.clamp_ball_to_bounds(stop_inward_velocity=True)
+            self.clamp_ball_to_bounds()
 
             moved_x = ball.x - before_x
             moved_y = ball.y - before_y
@@ -499,41 +499,34 @@ class GameRoom:
                 player.y -= ny * remaining_overlap
                 self.clamp_player_to_bounds(player)
 
-                player_into_ball = player.vx * nx + player.vy * ny
-                if player_into_ball > 0:
-                    player.vx -= player_into_ball * nx
-                    player.vy -= player_into_ball * ny
-                    recoil = min(70.0, max(28.0, player_into_ball * 0.22))
-                    player.vx -= nx * recoil
-                    player.vy -= ny * recoil
+        player_speed_along_normal = player.vx * nx + player.vy * ny
+        
+        if player_speed_along_normal > 0:
+            # Dribble slowly: synchronise ball velocity to player speed + slow forward roll (35.0 ELO-calibrated units/sec)
+            tangent_x, tangent_y = -ny, nx
+            ball_tangent = ball.vx * tangent_x + ball.vy * tangent_y
+            
+            new_ball_normal = player_speed_along_normal + 35.0
+            ball.vx = nx * new_ball_normal + tangent_x * ball_tangent
+            ball.vy = ny * new_ball_normal + tangent_y * ball_tangent
+        else:
+            # Soft bounce restitution so the ball does not fly off on passive contact
+            rel_vx = ball.vx - player.vx
+            rel_vy = ball.vy - player.vy
+            normal_speed = rel_vx * nx + rel_vy * ny
 
-        rel_vx = ball.vx - player.vx
-        rel_vy = ball.vy - player.vy
-        normal_speed = rel_vx * nx + rel_vy * ny
+            if normal_speed < 0:
+                inv_player_mass = 1.0 / player.mass
+                inv_ball_mass = 1.0 / ball.mass
+                restitution = 0.20
+                impulse = -(1.0 + restitution) * normal_speed / (inv_player_mass + inv_ball_mass)
 
-        # If the two circles are separating already, only positional correction is needed.
-        if normal_speed >= 0:
-            return
+                player.vx -= nx * impulse * inv_player_mass
+                player.vy -= ny * impulse * inv_player_mass
+                ball.vx += nx * impulse * inv_ball_mass
+                ball.vy += ny * impulse * inv_ball_mass
 
-        inv_player_mass = 1.0 / player.mass
-        inv_ball_mass = 1.0 / ball.mass
-        restitution = 0.28
-        impulse = -(1.0 + restitution) * normal_speed / (inv_player_mass + inv_ball_mass)
-
-        player.vx -= nx * impulse * inv_player_mass
-        player.vy -= ny * impulse * inv_player_mass
-        ball.vx += nx * impulse * inv_ball_mass
-        ball.vy += ny * impulse * inv_ball_mass
-
-        separation_speed = (ball.vx - player.vx) * nx + (ball.vy - player.vy) * ny
-        min_separation_speed = 85.0
-        if separation_speed < min_separation_speed:
-            extra_impulse = (min_separation_speed - separation_speed) / (inv_player_mass + inv_ball_mass)
-            player.vx -= nx * extra_impulse * inv_player_mass
-            player.vy -= ny * extra_impulse * inv_player_mass
-            ball.vx += nx * extra_impulse * inv_ball_mass
-            ball.vy += ny * extra_impulse * inv_ball_mass
-
+        # Apply realistic spin rotation from contact friction
         tangent_x, tangent_y = -ny, nx
         player_tangent_speed = player.vx * tangent_x + player.vy * tangent_y
         ball_tangent_speed = ball.vx * tangent_x + ball.vy * tangent_y
@@ -545,7 +538,6 @@ class GameRoom:
             ratio = max_ball_speed / ball_speed
             ball.vx *= ratio
             ball.vy *= ratio
-        self.cancel_ball_velocity_into_walls()
 
     def resolve_player_collision(self, first, second):
         dx = second.x - first.x
@@ -597,34 +589,28 @@ class GameRoom:
         min_y = self.play_bounds["top"] + self.ball.radius
         max_y = self.play_bounds["bottom"] - self.ball.radius
 
+        bounce_factor = 0.72 # Realistic ELO-calibrated bounce restitution
+
         if self.ball.x < min_x:
             self.ball.x = min_x
-            if stop_inward_velocity and self.ball.vx < 0:
-                self.ball.vx = 0
+            if self.ball.vx < 0:
+                self.ball.vx = -self.ball.vx * bounce_factor
         elif self.ball.x > max_x:
             self.ball.x = max_x
-            if stop_inward_velocity and self.ball.vx > 0:
-                self.ball.vx = 0
+            if self.ball.vx > 0:
+                self.ball.vx = -self.ball.vx * bounce_factor
 
         if self.ball.y < min_y:
             self.ball.y = min_y
-            if stop_inward_velocity and self.ball.vy < 0:
-                self.ball.vy = 0
+            if self.ball.vy < 0:
+                self.ball.vy = -self.ball.vy * bounce_factor
         elif self.ball.y > max_y:
             self.ball.y = max_y
-            if stop_inward_velocity and self.ball.vy > 0:
-                self.ball.vy = 0
+            if self.ball.vy > 0:
+                self.ball.vy = -self.ball.vy * bounce_factor
 
     def cancel_ball_velocity_into_walls(self):
-        min_x = self.play_bounds["left"] + self.ball.radius
-        max_x = self.play_bounds["right"] - self.ball.radius
-        min_y = self.play_bounds["top"] + self.ball.radius
-        max_y = self.play_bounds["bottom"] - self.ball.radius
-
-        if (self.ball.x <= min_x and self.ball.vx < 0) or (self.ball.x >= max_x and self.ball.vx > 0):
-            self.ball.vx = 0
-        if (self.ball.y <= min_y and self.ball.vy < 0) or (self.ball.y >= max_y and self.ball.vy > 0):
-            self.ball.vy = 0
+        pass
 
     def handle_ball_hit(self, socket_id, hit_data):
         if socket_id not in self.players:
@@ -721,6 +707,7 @@ class GameRoom:
             "match_state": self.state,
             "timer": self.timer,
             "countdown": self.countdown,
+            "player_count": len(self.players),
             "reward_info": self.reward_info
         }
 

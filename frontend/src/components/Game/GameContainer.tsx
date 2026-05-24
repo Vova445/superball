@@ -31,7 +31,7 @@ export default function GameContainer() {
     return (
         <div className="fixed inset-0 w-full h-full bg-megaball-dark overflow-hidden">
             <div ref={gameContainerRef} className="phaser-game h-full w-full" />
-            <MatchHUD homeScore={2} awayScore={1} initialSeconds={165} />
+            <MatchHUD />
         </div>
     );
 }
