@@ -3,6 +3,7 @@ import { Player, PLAYER_RING_RADIUS } from '../objects/Player';
 import { Ball, BALL_RADIUS } from '../objects/Ball';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/store/useAuthStore';
+import { type ControlBindings, normalizeQuality, regionToRoomSlug, useSettingsStore } from '@/store/useSettingsStore';
 import { getArenaById, getArenaForCups } from '../arenas';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -10,8 +11,7 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 export class GameScene extends Phaser.Scene {
     private player!: Player;
     private ball!: Ball;
-    private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-    private shiftKey!: Phaser.Input.Keyboard.Key;
+    private controlKeys!: Record<keyof Pick<ControlBindings, 'up' | 'down' | 'left' | 'right' | 'sprint' | 'shoot'>, Phaser.Input.Keyboard.Key>;
     private staminaBar!: Phaser.GameObjects.Graphics;
     private score = { home: 0, away: 0 };
     private scoreText!: Phaser.GameObjects.Text;
@@ -23,7 +23,6 @@ export class GameScene extends Phaser.Scene {
     private isResetting: boolean = false;
     private isGameStarted: boolean = false;
     private fpsText!: Phaser.GameObjects.Text;
-    private spaceKey!: Phaser.Input.Keyboard.Key;
     private lastFpsUpdate: number = 0;
 
     // Multiplayer / Interpolation properties
@@ -34,12 +33,15 @@ export class GameScene extends Phaser.Scene {
     private targetBallX: number | undefined;
     private targetBallY: number | undefined;
     private arenaId = 'village-field';
+    private roomId = 'game-room-europe';
     private playBounds = { left: 160, right: 1037, top: 68, bottom: 634 };
     private lastMoveDirection = new Phaser.Math.Vector2(1, 0);
     private matchState: string = 'LOBBY';
     private matchTimer: number = 180;
     private rewardInfo: any = null;
     private playerCount: number = 1;
+    private lastMotionBlurActive = false;
+    private lastMotionBlurDispatch = 0;
 
     constructor() {
         super('GameScene');
@@ -47,10 +49,13 @@ export class GameScene extends Phaser.Scene {
 
     preload() {
         const arenaId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('arena') : null;
+        const roomId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('room') : null;
+        const region = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('region') : null;
         const userMmr = useAuthStore.getState().user?.mmr ?? 0;
         const arena = getArenaById(arenaId) ?? getArenaForCups(userMmr);
 
         this.arenaId = arena.id;
+        this.roomId = roomId || `game-room-${regionToRoomSlug(region ?? useSettingsStore.getState().region)}`;
         this.playBounds = arena.playBounds;
         this.load.image('field', arena.image);
         this.load.image('karius_card', '/assets/players/karius.png');
@@ -66,9 +71,12 @@ export class GameScene extends Phaser.Scene {
         this.cameras.main.setBounds(0, 0, width, height);
         this.cameras.main.setBackgroundColor('#0D0D1A');
         this.cameras.main.setRoundPixels(false);
-        this.textures.get('field').setFilter(Phaser.Textures.FilterMode.LINEAR);
-        this.textures.get('karius_card').setFilter(Phaser.Textures.FilterMode.LINEAR);
-        this.textures.get('ball').setFilter(Phaser.Textures.FilterMode.LINEAR);
+        const textureFilter = normalizeQuality(useSettingsStore.getState().quality) === 'Low'
+            ? Phaser.Textures.FilterMode.NEAREST
+            : Phaser.Textures.FilterMode.LINEAR;
+        this.textures.get('field').setFilter(textureFilter);
+        this.textures.get('karius_card').setFilter(textureFilter);
+        this.textures.get('ball').setFilter(textureFilter);
 
         this.generateTextures();
 
@@ -82,9 +90,7 @@ export class GameScene extends Phaser.Scene {
         
         (this.ball.body as Phaser.Physics.Arcade.Body).setMass(0.2); 
         
-        this.cursors = this.input.keyboard!.createCursorKeys();
-        this.shiftKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
-        this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.controlKeys = this.createControlKeys();
 
         // Custom Physics Walls (collides with local player only)
         this.createCustomWalls(width, height);
@@ -118,8 +124,7 @@ export class GameScene extends Phaser.Scene {
 
         this.socket.on('connect', () => {
             console.log('Phaser connected to Socket.IO. SID:', this.socket.id);
-            // Join default matchmaking / game room
-            this.socket.emit('join_room', { room: 'game-room-1', arena: this.arenaId });
+            this.socket.emit('join_room', { room: this.roomId, arena: this.arenaId });
         });
 
         this.socket.on('game_state', (payload: any) => {
@@ -133,6 +138,20 @@ export class GameScene extends Phaser.Scene {
         this.socket.on('disconnect', () => {
             console.log('Socket disconnected in Phaser');
         });
+    }
+
+    private createControlKeys() {
+        const controls = useSettingsStore.getState().controls;
+        const keyboard = this.input.keyboard!;
+
+        return {
+            up: keyboard.addKey(controls.up.keyCode),
+            down: keyboard.addKey(controls.down.keyCode),
+            left: keyboard.addKey(controls.left.keyCode),
+            right: keyboard.addKey(controls.right.keyCode),
+            sprint: keyboard.addKey(controls.sprint.keyCode),
+            shoot: keyboard.addKey(controls.shoot.keyCode),
+        };
     }
 
     private handleGameState(payload: any) {
@@ -504,8 +523,9 @@ export class GameScene extends Phaser.Scene {
         }
         
         // 1. Process client input and locally predict player physics
-        const inputs = this.player.update(this.cursors, this.shiftKey, this.spaceKey, delta);
+        const inputs = this.player.update(this.controlKeys, delta);
         this.updateMoveDirection(inputs);
+        this.dispatchMotionBlur(inputs, time);
         
         // Space is only a kick action.
         if (inputs.kick) {
@@ -564,6 +584,25 @@ export class GameScene extends Phaser.Scene {
         if (dx !== 0 || dy !== 0) {
             this.lastMoveDirection.set(dx, dy).normalize();
         }
+    }
+
+    private dispatchMotionBlur(inputs: { up: boolean; down: boolean; left: boolean; right: boolean; kick?: boolean }, time: number) {
+        if (typeof window === 'undefined') return;
+
+        const isMoving = inputs.up || inputs.down || inputs.left || inputs.right || Boolean(inputs.kick);
+        const ballSpeed = Phaser.Math.Distance.Between(
+            this.ball.x,
+            this.ball.y,
+            this.targetBallX ?? this.ball.x,
+            this.targetBallY ?? this.ball.y
+        );
+        const active = isMoving || ballSpeed > 2;
+
+        if (active === this.lastMotionBlurActive && time - this.lastMotionBlurDispatch < 120) return;
+
+        this.lastMotionBlurActive = active;
+        this.lastMotionBlurDispatch = time;
+        window.dispatchEvent(new CustomEvent('megaball:motion-blur', { detail: { active } }));
     }
 
     private getKickDirection() {

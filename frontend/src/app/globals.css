@@ -23,21 +23,342 @@
 
   body {
     @apply min-h-screen bg-megaball-dark font-body text-white;
-    background-image:
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(123, 47, 255, 0.18), transparent),
-      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(0, 245, 255, 0.08), transparent);
   }
 }
 
 @layer components {
   .arcade-bg {
     @apply relative min-h-screen bg-megaball-dark;
-    background-image:
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(123, 47, 255, 0.18), transparent),
-      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(0, 245, 255, 0.08), transparent),
-      linear-gradient(rgba(123, 47, 255, 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(123, 47, 255, 0.04) 1px, transparent 1px);
-    background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+  }
+
+  .lobby-bg {
+    @apply relative min-h-screen bg-megaball-dark;
+    background-color: #0d0d1a;
+    --lobby-scene-width: max(100vw, 150vh);
+    --lobby-scene-height: max(66.6667vw, 100vh);
+    --lobby-menu-scale: 3.05;
+    isolation: isolate;
+    overflow: hidden;
+  }
+
+  .lobby-bg::before {
+    content: '';
+    @apply pointer-events-none absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 0;
+    width: var(--lobby-scene-width);
+    height: var(--lobby-scene-height);
+    background: url('/assets/lobby.png') center / 100% 100% no-repeat;
+    transform: translate(-50%, -50%);
+  }
+
+  .lobby-menu-hotspot {
+    @apply absolute z-20 outline-none;
+    left: calc(50vw + (var(--lobby-scene-width) * var(--menu-x)));
+    top: calc(50vh + (var(--lobby-scene-height) * var(--menu-y)));
+    width: clamp(
+      calc(var(--menu-min) * var(--lobby-menu-scale)),
+      calc(var(--lobby-scene-width) * var(--menu-size) * var(--lobby-menu-scale)),
+      calc(var(--menu-max) * var(--lobby-menu-scale))
+    );
+    aspect-ratio: 3 / 2;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+  }
+
+  .lobby-menu-hit {
+    @apply absolute z-20 cursor-pointer;
+    left: 50%;
+    top: var(--menu-hit-top, 44%);
+    width: var(--menu-hit-width, 68%);
+    height: var(--menu-hit-height, 58%);
+    border-radius: 9999px;
+    pointer-events: auto;
+    transform: translate(-50%, -50%) rotate(var(--menu-hit-rotate, 0deg));
+  }
+
+  .lobby-menu-hotspot::before {
+    content: '';
+    @apply absolute inset-0 transition duration-300;
+    background: var(--menu-image) center / 100% 100% no-repeat;
+    transform: scaleX(var(--menu-scale-x, 1));
+    transform-origin: center;
+  }
+
+  .lobby-menu-hotspot::after {
+    content: '';
+    @apply pointer-events-none absolute transition duration-300;
+    left: 50%;
+    top: var(--menu-ring-top, 76%);
+    width: var(--menu-ring-width, 62%);
+    height: var(--menu-ring-height, 22%);
+    border-radius: 9999px;
+    background:
+      radial-gradient(ellipse at center, var(--menu-aura-inner) 0%, var(--menu-aura) 36%, transparent 74%),
+      radial-gradient(ellipse at center, rgba(255, 255, 255, 0.2) 0%, transparent 58%);
+    opacity: 0.7;
+    transform: translate(-50%, -50%);
+    z-index: -1;
+  }
+
+  .lobby-menu-hotspot:has(.lobby-menu-hit:hover)::before,
+  .lobby-menu-hotspot:focus-visible::before {
+    filter: brightness(1.18) drop-shadow(0 0 18px rgba(0, 245, 255, 0.55));
+    transform: scaleX(var(--menu-scale-x, 1)) scale(1.08);
+  }
+
+  .lobby-menu-hotspot:has(.lobby-menu-hit:hover)::after,
+  .lobby-menu-hotspot:focus-visible::after {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+
+  .lobby-menu-label {
+    @apply pointer-events-none absolute left-1/2 z-10 whitespace-nowrap font-orbitron text-sm font-bold uppercase tracking-[0.16em] text-white transition duration-300 md:text-base;
+    top: var(--menu-label-top, 92%);
+    min-width: var(--menu-label-width, 7.5rem);
+    padding-bottom: 0.32rem;
+    text-align: center;
+    text-shadow:
+      0 0 6px rgba(255, 255, 255, 0.72),
+      0 0 14px var(--menu-aura);
+    transform: translateX(-50%) rotate(var(--menu-label-rotate, 0deg));
+  }
+
+  .lobby-menu-label::after {
+    content: '';
+    @apply absolute bottom-0 left-1/2 h-px;
+    width: 112%;
+    background: linear-gradient(90deg, transparent, rgba(235, 255, 215, 0.8), transparent);
+    box-shadow: 0 0 8px var(--menu-aura);
+    transform: translateX(-50%);
+  }
+
+  .lobby-menu-hotspot:has(.lobby-menu-hit:hover) .lobby-menu-label,
+  .lobby-menu-hotspot:focus-visible .lobby-menu-label {
+    color: #ffffff;
+    text-shadow:
+      0 0 8px rgba(255, 255, 255, 0.9),
+      0 0 18px var(--menu-aura);
+  }
+
+  .lobby-menu-hotspot-club {
+    --menu-x: -0.312;
+    --menu-y: 0.01;
+    --menu-size: 0.095;
+    --menu-min: 92px;
+    --menu-max: 146px;
+    --menu-image: url('/assets/menu/club.png');
+    --menu-aura: rgba(0, 245, 255, 0.55);
+    --menu-aura-inner: rgba(128, 255, 214, 0.34);
+    --menu-ring-top: 68%;
+    --menu-ring-width: 52%;
+    --menu-ring-height: 18%;
+    --menu-label-top: 79%;
+    --menu-label-width: 6rem;
+    --menu-hit-top: 42%;
+    --menu-hit-width: 62%;
+    --menu-hit-height: 52%;
+  }
+
+  .lobby-menu-hotspot-ranked {
+    --menu-x: -0.126;
+    --menu-y: -0.17;
+    --menu-size: 0.118;
+    --menu-min: 116px;
+    --menu-max: 182px;
+    --menu-image: url('/assets/menu/ranked.png');
+    --menu-aura: rgba(255, 218, 72, 0.58);
+    --menu-aura-inner: rgba(255, 245, 155, 0.36);
+    --menu-ring-top: 69%;
+    --menu-ring-width: 50%;
+    --menu-ring-height: 17%;
+    --menu-label-top: 81%;
+    --menu-label-width: 7rem;
+    --menu-hit-top: 42%;
+    --menu-hit-width: 62%;
+    --menu-hit-height: 54%;
+  }
+
+  .lobby-menu-hotspot-play {
+    --menu-x: 0.19;
+    --menu-y: -0.17;
+    --menu-size: 0.175;
+    --menu-min: 168px;
+    --menu-max: 270px;
+    --menu-image: url('/assets/menu/play.png');
+    --menu-aura: rgba(95, 255, 128, 0.52);
+    --menu-aura-inner: rgba(180, 255, 130, 0.32);
+    --menu-ring-top: 62%;
+    --menu-ring-width: 64%;
+    --menu-ring-height: 15%;
+    --menu-label-top: 74%;
+    --menu-label-width: 6.5rem;
+    --menu-hit-top: 39%;
+    --menu-hit-width: 70%;
+    --menu-hit-height: 54%;
+  }
+
+  .lobby-menu-hotspot-home {
+    --menu-x: -0.185;
+    --menu-y: 0.19;
+    --menu-size: 0.16;
+    --menu-min: 150px;
+    --menu-max: 240px;
+    --menu-image: url('/assets/menu/home.png');
+    --menu-aura: rgba(255, 196, 72, 0.5);
+    --menu-aura-inner: rgba(255, 235, 150, 0.32);
+    --menu-ring-top: 64%;
+    --menu-ring-width: 62%;
+    --menu-ring-height: 18%;
+    --menu-label-top: 77%;
+    --menu-label-width: 7rem;
+    --menu-hit-top: 41%;
+    --menu-hit-width: 68%;
+    --menu-hit-height: 54%;
+  }
+
+  .lobby-menu-hotspot-locker {
+    --menu-x: 0.065;
+    --menu-y: 0.145;
+    --menu-size: 0.155;
+    --menu-min: 148px;
+    --menu-max: 236px;
+    --menu-image: url('/assets/menu/locker_room.png');
+    --menu-aura: rgba(0, 245, 255, 0.42);
+    --menu-aura-inner: rgba(160, 255, 210, 0.26);
+    --menu-ring-top: 65%;
+    --menu-ring-width: 58%;
+    --menu-ring-height: 17%;
+    --menu-label-top: 79%;
+    --menu-label-width: 10rem;
+    --menu-hit-top: 42%;
+    --menu-hit-width: 66%;
+    --menu-hit-height: 54%;
+  }
+
+  .lobby-menu-hotspot-shop {
+    --menu-x: 0.365;
+    --menu-y: 0.04;
+    --menu-size: 0.13;
+    --menu-min: 124px;
+    --menu-max: 198px;
+    --menu-image: url('/assets/menu/shop.png');
+    --menu-aura: rgba(155, 255, 80, 0.46);
+    --menu-aura-inner: rgba(205, 255, 120, 0.28);
+    --menu-ring-top: 62%;
+    --menu-ring-width: 50%;
+    --menu-ring-height: 16%;
+    --menu-label-top: 76%;
+    --menu-label-width: 6rem;
+    --menu-label-rotate: -5deg;
+    --menu-hit-top: 40%;
+    --menu-hit-width: 58%;
+    --menu-hit-height: 52%;
+    --menu-hit-rotate: -5deg;
+  }
+
+  .settings-range {
+    width: 100%;
+    height: 18px;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .settings-range::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 9999px;
+    background:
+      linear-gradient(90deg, #00d69f 0%, #00d69f var(--range-value), rgba(255, 255, 255, 0.08) var(--range-value), rgba(255, 255, 255, 0.08) 100%);
+  }
+
+  .settings-range::-webkit-slider-thumb {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -5px;
+    border-radius: 9999px;
+    background: #f4fff9;
+    box-shadow: 0 0 14px rgba(0, 214, 159, 0.55);
+  }
+
+  .settings-range::-moz-range-track {
+    height: 4px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .settings-range::-moz-range-progress {
+    height: 4px;
+    border-radius: 9999px;
+    background: #00d69f;
+  }
+
+  .settings-range::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: 0;
+    border-radius: 9999px;
+    background: #f4fff9;
+    box-shadow: 0 0 14px rgba(0, 214, 159, 0.55);
+  }
+
+  .settings-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .settings-scroll::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  .profile-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .profile-scroll::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  .profile-edit-input {
+    color-scheme: dark;
+    background-color: #0a2029 !important;
+    -webkit-text-fill-color: #ffffff;
+  }
+
+  .profile-edit-input:-webkit-autofill,
+  .profile-edit-input:-webkit-autofill:hover,
+  .profile-edit-input:-webkit-autofill:focus {
+    border-color: #1e3d48;
+    box-shadow: 0 0 0 1000px #0a2029 inset, inset 0 0 18px rgba(0, 214, 255, 0.03);
+    -webkit-text-fill-color: #ffffff;
+    caret-color: #ffffff;
+    transition: background-color 9999s ease-in-out 0s;
+  }
+
+  .clubs-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .clubs-scroll::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  .shop-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .shop-scroll::-webkit-scrollbar {
+    width: 0;
+    height: 0;
   }
 
   .arcade-card {
@@ -90,13 +411,11 @@
 
   .auth-bg {
     @apply relative bg-megaball-dark;
-    background:
-      linear-gradient(90deg, rgba(2, 3, 13, 0.16) 0%, rgba(2, 3, 13, 0.08) 54%, rgba(2, 3, 13, 0.28) 100%),
-      url('/assets/megabol-auth-bg.png') center / cover no-repeat;
+    background: url('/assets/megabol-auth-bg.png') center / cover no-repeat;
   }
 
   .auth-panel {
-    @apply relative overflow-hidden border bg-[#050712]/80 shadow-neon-card backdrop-blur-md;
+    @apply relative overflow-hidden border bg-[#050712]/80 shadow-neon-card;
     border-color: rgba(123, 47, 255, 0.55);
     border-radius: 0;
     min-height: 640px;
@@ -109,14 +428,6 @@
   .auth-content {
     @apply relative z-10 mx-auto w-full;
     max-width: min(86%, 920px);
-  }
-
-  .auth-panel::before {
-    content: '';
-    @apply pointer-events-none absolute inset-0;
-    background:
-      linear-gradient(135deg, rgba(123, 47, 255, 0.18), transparent 42%),
-      linear-gradient(315deg, rgba(0, 245, 255, 0.12), transparent 36%);
   }
 
   .auth-tabs {

@@ -1,15 +1,30 @@
 import time
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from typing import Optional
 from app.api.deps import get_current_user
+from app.models.match import Match
 from app.models.user import User
 from app.services.redis import redis_service
-from app.services.matchmaker import join_times
+from app.services.matchmaker import (
+    join_times,
+    matchmaking_queue_key,
+    remove_user_from_all_matchmaking_queues,
+    normalize_region,
+)
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.db.session import get_db
 
 router = APIRouter()
+
+class JoinMatchmakingRequest(BaseModel):
+    region: str = "Europe"
+
+class UpdateProfileRequest(BaseModel):
+    nickname: Optional[str] = None
+    email: Optional[str] = None
 
 @router.get("/")
 async def read_root():
@@ -21,23 +36,27 @@ async def health_check():
 
 @router.post("/matchmaking/join")
 async def join_matchmaking(
+    payload: JoinMatchmakingRequest,
     current_user: User = Depends(get_current_user)
 ):
     user_id = str(current_user.id)
     user_mmr = current_user.mmr if current_user.mmr is not None else 0
+    region = normalize_region(payload.region)
+    queue_key = matchmaking_queue_key(region)
     
     join_times[user_id] = time.time()
-    redis_service.zadd("matchmaking_queue", {user_id: user_mmr})
+    remove_user_from_all_matchmaking_queues(user_id)
+    redis_service.zadd(queue_key, {user_id: user_mmr})
     
-    print(f"User {user_id} with MMR {user_mmr} joined matchmaking queue.")
-    return {"status": "in_queue", "user_id": user_id, "mmr": user_mmr}
+    print(f"User {user_id} with MMR {user_mmr} joined {region} matchmaking queue.")
+    return {"status": "in_queue", "user_id": user_id, "mmr": user_mmr, "region": region}
 
 @router.post("/matchmaking/leave")
 async def leave_matchmaking(
     current_user: User = Depends(get_current_user)
 ):
     user_id = str(current_user.id)
-    redis_service.zrem("matchmaking_queue", user_id)
+    remove_user_from_all_matchmaking_queues(user_id)
     if user_id in join_times:
         del join_times[user_id]
         
@@ -67,6 +86,46 @@ async def get_profile(
         db.add(progression)
         await db.commit()
         await db.refresh(progression)
+
+    user_id = str(current_user.id)
+    matches_result = await db.execute(
+        select(Match).where(
+            (Match.home_player_id == user_id) |
+            (Match.away_player_id == user_id)
+        )
+    )
+    matches = matches_result.scalars().all()
+    wins = sum(1 for match in matches if match.winner_id == user_id)
+    losses = sum(1 for match in matches if match.winner_id and match.winner_id != user_id)
+    goals_scored = sum(
+        match.home_score if match.home_player_id == user_id else match.away_score
+        for match in matches
+    )
+    best_win_streak = 0
+    current_win_streak = 0
+    for match in sorted(matches, key=lambda item: item.created_at or 0):
+        if match.winner_id == user_id:
+            current_win_streak += 1
+            best_win_streak = max(best_win_streak, current_win_streak)
+        elif match.winner_id:
+            current_win_streak = 0
+    recent_matches = []
+    for match in sorted(matches, key=lambda item: item.created_at or 0, reverse=True)[:10]:
+        is_home = match.home_player_id == user_id
+        player_score = match.home_score if is_home else match.away_score
+        opponent_score = match.away_score if is_home else match.home_score
+        if match.winner_id == user_id:
+            result_label = "WIN"
+        elif match.winner_id:
+            result_label = "LOSS"
+        else:
+            result_label = "DRAW"
+        recent_matches.append({
+            "id": match.id,
+            "score": f"{player_score}:{opponent_score}",
+            "result": result_label,
+            "played_at": match.created_at.isoformat() if match.created_at else None,
+        })
         
     return {
         "id": current_user.id,
@@ -78,11 +137,53 @@ async def get_profile(
         "xp": progression.xp,
         "total_xp": progression.total_xp,
         "xp_needed": progression.level * 200,
+        "wins": wins,
+        "losses": losses,
+        "matches_played": len(matches),
+        "goals_scored": goals_scored,
+        "best_win_streak": best_win_streak,
+        "recent_matches": recent_matches,
         "coins": progression.coins,
         "gems": progression.gems
     }
 
-from pydantic import BaseModel
+@router.put("/profile")
+async def update_profile(
+    payload: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    next_nickname = payload.nickname.strip() if payload.nickname is not None else current_user.nickname
+    next_email = payload.email.strip() if payload.email is not None else current_user.email
+
+    if not next_nickname:
+        raise HTTPException(status_code=400, detail="Nickname is required")
+    if not next_email:
+        raise HTTPException(status_code=400, detail="Email is required")
+
+    duplicate_result = await db.execute(
+        select(User).where(
+            (User.id != current_user.id) &
+            ((User.nickname == next_nickname) | (User.email == next_email))
+        )
+    )
+    duplicate_user = duplicate_result.scalars().first()
+    if duplicate_user:
+        raise HTTPException(status_code=400, detail="Nickname or email already in use")
+
+    current_user.nickname = next_nickname
+    current_user.email = next_email
+    await db.commit()
+    await db.refresh(current_user)
+
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "nickname": current_user.nickname,
+        "email": current_user.email,
+        "mmr": current_user.mmr,
+    }
+
 import json
 from app.models.item import Item, UserInventory
 from app.models.user_progression import UserProgression
@@ -233,5 +334,3 @@ async def equip_item(
         "item_id": item.id,
         "equipped": inv.equipped
     }
-
-

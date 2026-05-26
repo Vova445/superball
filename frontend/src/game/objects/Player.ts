@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { type ControlBindings } from '@/store/useSettingsStore';
 
 type PlayerTeam = 'home' | 'away';
 type PlayBounds = { left: number; right: number; top: number; bottom: number };
@@ -72,18 +73,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     update(
-        cursors: Phaser.Types.Input.Keyboard.CursorKeys,
-        shiftKey: Phaser.Input.Keyboard.Key,
-        spaceKey: Phaser.Input.Keyboard.Key,
+        keys: Record<keyof Pick<ControlBindings, 'up' | 'down' | 'left' | 'right' | 'sprint' | 'shoot'>, Phaser.Input.Keyboard.Key>,
         delta: number
     ) {
         const inputs = {
-            up: cursors.up.isDown,
-            down: cursors.down.isDown,
-            left: cursors.left.isDown,
-            right: cursors.right.isDown,
-            sprint: shiftKey.isDown,
-            kick: Phaser.Input.Keyboard.JustDown(spaceKey),
+            up: keys.up.isDown,
+            down: keys.down.isDown,
+            left: keys.left.isDown,
+            right: keys.right.isDown,
+            sprint: keys.sprint.isDown,
+            kick: Phaser.Input.Keyboard.JustDown(keys.shoot),
         };
 
         this.simulate(inputs, delta / 1000);

@@ -1,9 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import Logo from '@/components/Logo';
-import { Button } from '@/components/ui';
+import { AppHeader } from '@/components/layout/AppHeader';
 
 interface PageShellProps {
   children: ReactNode;
@@ -22,22 +20,12 @@ const maxW = {
   full: 'max-w-full',
 };
 
-export function PageShell({ children, title, showLogo = false, maxWidth = '6xl' }: PageShellProps) {
-  const router = useRouter();
-
+export function PageShell({ children, title, maxWidth = '6xl' }: PageShellProps) {
   return (
-    <main className="arcade-bg relative min-h-screen p-4 md:p-8">
-      <div className="pointer-events-none absolute top-[-10%] left-[-5%] h-[40%] w-[40%] rounded-full bg-megaball-purple/15 blur-[100px]" />
-      <div className="pointer-events-none absolute bottom-[-10%] right-[-5%] h-[40%] w-[40%] rounded-full bg-megaball-cyan/10 blur-[100px]" />
-
+    <main className="arcade-bg relative min-h-screen px-4 pb-4 pt-[92px] md:px-8 md:pb-8">
+      <AppHeader />
       <div className={`relative z-10 mx-auto w-full ${maxW[maxWidth]}`}>
-        <header className="mb-6 flex items-center justify-between gap-4">
-          <Button variant="ghost" size="sm" onClick={() => router.push('/')} className="shrink-0">
-            ← Menu
-          </Button>
-          {title && <h1 className="arcade-heading flex-1 text-center text-xl md:text-2xl">{title}</h1>}
-          {showLogo ? <Logo size="sm" showWordmark={false} /> : <div className="w-20" />}
-        </header>
+        {title && <h1 className="mb-6 font-sans text-2xl font-bold text-white md:text-3xl">{title}</h1>}
         {children}
       </div>
     </main>

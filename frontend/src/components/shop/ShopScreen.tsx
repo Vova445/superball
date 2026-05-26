@@ -23,7 +23,6 @@ export function ShopScreen() {
     <div className="space-y-6">
       {featured.length > 0 && (
         <div className="relative overflow-hidden rounded-arcade-xl border-2 border-megaball-purple bg-gradient-to-r from-megaball-purple/30 via-megaball-dark to-megaball-cyan/20 p-6 shadow-neon-purple animate-glow md:p-8">
-          <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-megaball-cyan/20 blur-3xl" />
           <p className="font-orbitron text-xs uppercase tracking-[0.3em] text-megaball-cyan">Featured</p>
           <div className="mt-4 flex flex-wrap items-center gap-6">
             {featured.slice(0, 2).map((item) => (

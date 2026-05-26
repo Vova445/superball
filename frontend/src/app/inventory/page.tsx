@@ -9,8 +9,7 @@ export default function InventoryPage() {
   if (!ready) return null;
 
   return (
-    <PageShell title="Inventory" maxWidth="6xl">
-      <p className="mb-4 text-sm text-white/50">Drag items onto loadout slots to equip.</p>
+    <PageShell maxWidth="full">
       <InventoryScreen />
     </PageShell>
   );

@@ -25,6 +25,11 @@ class GameRoom:
         self.countdown = 3
         self.tick_to_next_sec = 60
         self.match_saved = False
+        self.match_save_started = False
+        self.home_user_id = None
+        self.away_user_id = None
+        self.forfeit_winner_user_id = None
+        self.match_started_at = None
         self.reward_info = None
 
     async def add_player(self, socket_id, user_id=None):
@@ -35,6 +40,11 @@ class GameRoom:
         player = ServerPlayer(socket_id, x, y, self.play_bounds)
         player.user_id = user_id
         player.is_home = is_home
+        if user_id:
+            if is_home:
+                self.home_user_id = str(user_id)
+            else:
+                self.away_user_id = str(user_id)
         
         # Apply stats bonus from equipped items
         if user_id:
@@ -84,6 +94,15 @@ class GameRoom:
 
     def remove_player(self, socket_id):
         if socket_id in self.players:
+            player = self.players[socket_id]
+            user_id = getattr(player, 'user_id', None)
+            is_home = getattr(player, 'is_home', False)
+            if self.state in ["COUNTDOWN", "PLAYING", "OVERTIME"] and not self.match_save_started:
+                opponent_user_id = self.away_user_id if is_home else self.home_user_id
+                self.forfeit_winner_user_id = opponent_user_id if opponent_user_id else None
+                self.state = "FINISHED"
+                self.handle_match_finished()
+                print(f"Match {self.room_id} ended by forfeit. Leaver: {user_id}, winner: {self.forfeit_winner_user_id}")
             del self.players[socket_id]
             del self.inputs[socket_id]
 
@@ -115,41 +134,43 @@ class GameRoom:
         # State machine tick update
         self.update_state_machine()
 
-        # Update physics only in PLAYING or OVERTIME states
-        if self.state in ["PLAYING", "OVERTIME"]:
-            substeps = 4
-            sub_dt = self.dt / substeps
-
-            for _substep in range(substeps):
-                # 1. Update Players
-                for sid, player in self.players.items():
-                    player.update(self.inputs[sid], sub_dt)
-
-                # 2. Update Ball
-                self.ball.update(sub_dt)
-
-                # 3. Handle Player-Player Collisions
-                player_list = list(self.players.values())
-                for i in range(len(player_list)):
-                    for j in range(i + 1, len(player_list)):
-                        self.resolve_player_collision(player_list[i], player_list[j])
-
-                # 4. Handle Player-Ball Collisions. Iterate so a ball trapped
-                # against a wall pushes the player back instead of tunneling.
-                contact_skin = 1.5
-                for _ in range(3):
-                    had_collision = False
-                    for player in self.players.values():
-                        if self.should_resolve_player_ball(player, contact_skin):
-                            self.resolve_collision(player, self.ball)
-                            had_collision = True
-
-                    self.clamp_ball_to_bounds(stop_inward_velocity=True)
-                    if not had_collision:
-                        break
-
-            # 5. Check Goals
+        if self.state in ["LOBBY", "COUNTDOWN"]:
+            self.simulate_physics()
+        elif self.state in ["PLAYING", "OVERTIME"]:
+            self.simulate_physics()
             self.check_goals()
+
+    def simulate_physics(self):
+        substeps = 4
+        sub_dt = self.dt / substeps
+
+        for _substep in range(substeps):
+            # 1. Update Players
+            for sid, player in self.players.items():
+                player.update(self.inputs[sid], sub_dt)
+
+            # 2. Update Ball
+            self.ball.update(sub_dt)
+
+            # 3. Handle Player-Player Collisions
+            player_list = list(self.players.values())
+            for i in range(len(player_list)):
+                for j in range(i + 1, len(player_list)):
+                    self.resolve_player_collision(player_list[i], player_list[j])
+
+            # 4. Handle Player-Ball Collisions. Iterate so a ball trapped
+            # against a wall pushes the player back instead of tunneling.
+            contact_skin = 1.5
+            for _ in range(3):
+                had_collision = False
+                for player in self.players.values():
+                    if self.should_resolve_player_ball(player, contact_skin):
+                        self.resolve_collision(player, self.ball)
+                        had_collision = True
+
+                self.clamp_ball_to_bounds(stop_inward_velocity=True)
+                if not had_collision:
+                    break
 
     def should_resolve_player_ball(self, player, contact_skin):
         min_dist = player.radius + self.ball.radius + contact_skin
@@ -189,6 +210,7 @@ class GameRoom:
                 self.tick_to_next_sec = 60
                 if self.countdown <= 0:
                     self.state = "PLAYING"
+                    self.match_started_at = time.time()
                     self.timer = 180  # 3 minutes
                     self.tick_to_next_sec = 60
                     self.reset_positions()
@@ -207,27 +229,30 @@ class GameRoom:
                         self.handle_match_finished()
 
     def handle_match_finished(self):
+        if self.match_save_started:
+            return
+        self.match_save_started = True
         asyncio.create_task(self.save_match_result_to_db())
 
     async def save_match_result_to_db(self):
         if self.match_saved:
             return
-        self.match_saved = True
         
-        home_user_id = None
-        away_user_id = None
-        winner_user_id = None
+        home_user_id = self.home_user_id
+        away_user_id = self.away_user_id
+        winner_user_id = self.forfeit_winner_user_id
         
         for p in self.players.values():
-            if getattr(p, 'is_home', False):
+            if getattr(p, 'is_home', False) and not home_user_id:
                 home_user_id = getattr(p, 'user_id', None)
-            else:
+            elif not getattr(p, 'is_home', False) and not away_user_id:
                 away_user_id = getattr(p, 'user_id', None)
                 
-        if self.score["home"] > self.score["away"]:
-            winner_user_id = home_user_id
-        elif self.score["away"] > self.score["home"]:
-            winner_user_id = away_user_id
+        if not winner_user_id:
+            if self.score["home"] > self.score["away"]:
+                winner_user_id = home_user_id
+            elif self.score["away"] > self.score["home"]:
+                winner_user_id = away_user_id
             
         rewards = {}
         is_draw = (self.score["home"] == self.score["away"])
@@ -393,16 +418,23 @@ class GameRoom:
                         rewards[away_user_id]["coins"]
                     )
                     
+                duration = 0
+                if self.match_started_at:
+                    duration = max(0, int(time.time() - self.match_started_at))
+                elif self.state == "FINISHED":
+                    duration = max(0, 180 - self.timer)
+
                 match_record = Match(
                     home_player_id=str(home_user_id) if home_user_id else None,
                     away_player_id=str(away_user_id) if away_user_id else None,
                     home_score=self.score["home"],
                     away_score=self.score["away"],
                     winner_id=str(winner_user_id) if winner_user_id else None,
-                    duration=180 - self.timer if self.state == "FINISHED" else 180
+                    duration=duration
                 )
                 session.add(match_record)
                 await session.commit()
+                self.match_saved = True
                 
                 print(f"Match recorded in DB: ID {match_record.id}. ELO updates: Home {home_old_mmr} -> {home_new_mmr} ({home_delta:+d}), Away {away_old_mmr} -> {away_new_mmr} ({away_delta:+d})")
                 

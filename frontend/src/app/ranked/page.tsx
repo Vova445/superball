@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { io, type Socket } from 'socket.io-client';
 import { PageShell } from '@/components/layout/PageShell';
 import { Badge, Button, Card } from '@/components/ui';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
@@ -9,13 +10,18 @@ import { cn } from '@/lib/cn';
 import { getRankName, rankToBadgeVariant } from '@/lib/rarity';
 import { ARENAS, getArenaForCups } from '@/game/arenas';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import api from '@/lib/api';
+
+const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 export default function RankedPage() {
   const { ready, user } = useRequireAuth();
   const router = useRouter();
   const [searching, setSearching] = useState(false);
   const [profileMmr, setProfileMmr] = useState<number | null>(null);
+  const matchmakingSocket = useRef<Socket | null>(null);
+  const region = useSettingsStore((state) => state.region);
 
   useEffect(() => {
     if (!ready) return;
@@ -33,6 +39,14 @@ export default function RankedPage() {
       .catch(() => setProfileMmr(user?.mmr ?? 0));
   }, [ready, user?.mmr]);
 
+  useEffect(() => {
+    return () => {
+      matchmakingSocket.current?.disconnect();
+      matchmakingSocket.current = null;
+      api.post('/api/matchmaking/leave').catch(() => undefined);
+    };
+  }, []);
+
   if (!ready || !user) return null;
 
   const trophies = profileMmr ?? user.mmr ?? 0;
@@ -41,11 +55,39 @@ export default function RankedPage() {
   const roadProgress = Math.min(100, (trophies / ARENAS[ARENAS.length - 1].cups) * 100);
 
   const findMatch = () => {
+    const token = useAuthStore.getState().accessToken;
+    if (!token) return;
+
     setSearching(true);
-    setTimeout(() => {
+    matchmakingSocket.current?.disconnect();
+
+    const socket = io(SOCKET_URL, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+    });
+
+    matchmakingSocket.current = socket;
+
+    socket.on('connect', () => {
+      api.post('/api/matchmaking/join', { region }).catch(() => {
+        setSearching(false);
+        socket.disconnect();
+      });
+    });
+
+    socket.on('match_invite', (payload: { room: string; region?: string }) => {
       setSearching(false);
-      router.push(`/game?arena=${currentArena.id}`);
-    }, 2000);
+      socket.disconnect();
+      const inviteRegion = payload.region ?? region;
+      router.push(
+        `/game?arena=${encodeURIComponent(currentArena.id)}&room=${encodeURIComponent(payload.room)}&region=${encodeURIComponent(inviteRegion)}`
+      );
+    });
+
+    socket.on('connect_error', () => {
+      setSearching(false);
+      socket.disconnect();
+    });
   };
 
   return (
@@ -95,7 +137,7 @@ export default function RankedPage() {
               disabled={searching}
               onClick={findMatch}
             >
-              {searching ? 'Searching...' : 'Find Ranked Match'}
+              {searching ? `Searching ${region}...` : 'Find Ranked Match'}
             </Button>
           </div>
         </Card>

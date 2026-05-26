@@ -1,4 +1,5 @@
 import { Orbitron, Rajdhani } from 'next/font/google';
+import { VisualSettingsApplier } from '@/components/VisualSettingsApplier';
 import './globals.css';
 
 const orbitron = Orbitron({
@@ -26,6 +27,7 @@ export default function RootLayout({
   return (
     <html lang="uk" className={`${orbitron.variable} ${rajdhani.variable}`}>
       <body className="min-h-screen bg-megaball-dark font-body text-white antialiased">
+        <VisualSettingsApplier />
         {children}
       </body>
     </html>

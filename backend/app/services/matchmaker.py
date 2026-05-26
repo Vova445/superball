@@ -1,11 +1,25 @@
 import asyncio
 import time
 from app.services.redis import redis_service
-from app.services.socket_manager import active_rooms, user_sid_map, sio
-from app.game.room import GameRoom
+from app.services.socket_manager import user_sid_map, sio
 
 # In-memory join times
 join_times = {}  # str(user_id) -> float
+MATCHMAKING_REGIONS = ("Europe", "North America", "South America", "Asia")
+
+def normalize_region(region):
+    return region if region in MATCHMAKING_REGIONS else "Europe"
+
+def region_slug(region):
+    return normalize_region(region).lower().replace(" ", "-")
+
+def matchmaking_queue_key(region):
+    return f"matchmaking_queue:{region_slug(region)}"
+
+def remove_user_from_all_matchmaking_queues(user_id):
+    for region in MATCHMAKING_REGIONS:
+        redis_service.zrem(matchmaking_queue_key(region), user_id)
+    redis_service.zrem("matchmaking_queue", user_id)
 
 async def matchmaker_loop():
     print("Matchmaker background loop started.")
@@ -17,8 +31,13 @@ async def matchmaker_loop():
             print(f"Error in matchmaker loop: {e}")
 
 async def check_matches():
+    for region in MATCHMAKING_REGIONS:
+        await check_region_matches(region)
+
+async def check_region_matches(region):
     # Get all players in the matchmaking queue sorted by score (MMR)
-    queue = redis_service.zrange("matchmaking_queue", 0, -1, withscores=True)
+    queue_key = matchmaking_queue_key(region)
+    queue = redis_service.zrange(queue_key, 0, -1, withscores=True)
     if len(queue) < 2:
         return
 
@@ -60,39 +79,19 @@ async def check_matches():
                 
     for u1, u2 in matched_pairs:
         # Remove from queue
-        redis_service.zrem("matchmaking_queue", u1, u2)
+        redis_service.zrem(queue_key, u1, u2)
         if u1 in join_times: del join_times[u1]
         if u2 in join_times: del join_times[u2]
         
-        # Create GameRoom
-        room_id = f"room_{u1}_{u2}_{int(time.time())}"
-        game_room = GameRoom(room_id)
-        active_rooms[room_id] = game_room
-        
-        # Setup room broadcast callback
-        async def make_broadcast(r_id):
-            async def broadcast_callback(state):
-                state["timestamp"] = time.time() * 1000
-                await sio.emit('game_state', state, room=r_id)
-            return broadcast_callback
-            
-        async def run_room(r_id, room_obj):
-            try:
-                callback = await make_broadcast(r_id)
-                await room_obj.start(callback)
-            except Exception as e:
-                print(f"Error running game room {r_id}: {e}")
-                
-        # Start game room runner task
-        asyncio.create_task(run_room(room_id, game_room))
+        room_id = f"room_{region_slug(region)}_{u1}_{u2}_{int(time.time())}"
         
         # Send invite event to both players if they are connected
         sid1 = user_sid_map.get(u1)
         sid2 = user_sid_map.get(u2)
         
-        print(f"Match found: {u1} (sid: {sid1}) and {u2} (sid: {sid2}). Room ID: {room_id}")
+        print(f"Match found in {region}: {u1} (sid: {sid1}) and {u2} (sid: {sid2}). Room ID: {room_id}")
         
         if sid1:
-            await sio.emit("match_invite", {"room": room_id, "opponent_id": u2}, to=sid1)
+            await sio.emit("match_invite", {"room": room_id, "opponent_id": u2, "region": region}, to=sid1)
         if sid2:
-            await sio.emit("match_invite", {"room": room_id, "opponent_id": u1}, to=sid2)
+            await sio.emit("match_invite", {"room": room_id, "opponent_id": u1, "region": region}, to=sid2)

@@ -7,6 +7,7 @@ interface User {
   nickname: string;
   email: string;
   mmr?: number;
+  level?: number;
 }
 
 interface AuthState {
