@@ -253,6 +253,11 @@ class GameRoom:
                 winner_user_id = home_user_id
             elif self.score["away"] > self.score["home"]:
                 winner_user_id = away_user_id
+
+        if not home_user_id or not away_user_id or str(home_user_id) == str(away_user_id):
+            self.match_saved = True
+            print(f"Skipped match DB record for room {self.room_id}: invalid players home={home_user_id}, away={away_user_id}")
+            return
             
         rewards = {}
         is_draw = (self.score["home"] == self.score["away"])

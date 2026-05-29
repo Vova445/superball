@@ -25,6 +25,7 @@ class JoinMatchmakingRequest(BaseModel):
 class UpdateProfileRequest(BaseModel):
     nickname: Optional[str] = None
     email: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 @router.get("/")
 async def read_root():
@@ -69,6 +70,7 @@ async def get_profile(
     db: AsyncSession = Depends(get_db)
 ):
     from app.models.user_progression import UserProgression
+    from app.models.user_profile import UserProfile
     
     result = await db.execute(select(UserProgression).where(UserProgression.user_id == current_user.id))
     progression = result.scalars().first()
@@ -87,6 +89,9 @@ async def get_profile(
         await db.commit()
         await db.refresh(progression)
 
+    profile_result = await db.execute(select(UserProfile).where(UserProfile.user_id == current_user.id))
+    profile = profile_result.scalars().first()
+
     user_id = str(current_user.id)
     matches_result = await db.execute(
         select(Match).where(
@@ -95,10 +100,19 @@ async def get_profile(
         )
     )
     matches = matches_result.scalars().all()
+    matches = [
+        match for match in matches
+        if match.home_player_id and match.away_player_id and match.home_player_id != match.away_player_id
+    ]
     wins = sum(1 for match in matches if match.winner_id == user_id)
     losses = sum(1 for match in matches if match.winner_id and match.winner_id != user_id)
+    draws = sum(1 for match in matches if not match.winner_id)
     goals_scored = sum(
         match.home_score if match.home_player_id == user_id else match.away_score
+        for match in matches
+    )
+    goals_conceded = sum(
+        match.away_score if match.home_player_id == user_id else match.home_score
         for match in matches
     )
     best_win_streak = 0
@@ -124,6 +138,7 @@ async def get_profile(
             "id": match.id,
             "score": f"{player_score}:{opponent_score}",
             "result": result_label,
+            "duration": match.duration,
             "played_at": match.created_at.isoformat() if match.created_at else None,
         })
         
@@ -132,6 +147,7 @@ async def get_profile(
         "username": current_user.username,
         "nickname": current_user.nickname,
         "email": current_user.email,
+        "avatar_url": profile.avatar_url if profile else None,
         "mmr": current_user.mmr,
         "level": progression.level,
         "xp": progression.xp,
@@ -139,8 +155,10 @@ async def get_profile(
         "xp_needed": progression.level * 200,
         "wins": wins,
         "losses": losses,
+        "draws": draws,
         "matches_played": len(matches),
         "goals_scored": goals_scored,
+        "goals_conceded": goals_conceded,
         "best_win_streak": best_win_streak,
         "recent_matches": recent_matches,
         "coins": progression.coins,
@@ -153,26 +171,44 @@ async def update_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    from app.models.user_profile import UserProfile
+
     next_nickname = payload.nickname.strip() if payload.nickname is not None else current_user.nickname
     next_email = payload.email.strip() if payload.email is not None else current_user.email
+    next_avatar_url = payload.avatar_url.strip() if payload.avatar_url is not None else None
 
-    if not next_nickname:
+    if payload.nickname is not None and not next_nickname:
         raise HTTPException(status_code=400, detail="Nickname is required")
-    if not next_email:
+    if payload.email is not None and not next_email:
         raise HTTPException(status_code=400, detail="Email is required")
+    if next_avatar_url is not None:
+        if next_avatar_url and not next_avatar_url.startswith("data:image/"):
+            raise HTTPException(status_code=400, detail="Avatar must be an image")
+        if len(next_avatar_url) > 2_500_000:
+            raise HTTPException(status_code=400, detail="Avatar image is too large")
 
-    duplicate_result = await db.execute(
-        select(User).where(
-            (User.id != current_user.id) &
-            ((User.nickname == next_nickname) | (User.email == next_email))
+    if payload.nickname is not None or payload.email is not None:
+        duplicate_result = await db.execute(
+            select(User).where(
+                (User.id != current_user.id) &
+                ((User.nickname == next_nickname) | (User.email == next_email))
+            )
         )
-    )
-    duplicate_user = duplicate_result.scalars().first()
-    if duplicate_user:
-        raise HTTPException(status_code=400, detail="Nickname or email already in use")
+        duplicate_user = duplicate_result.scalars().first()
+        if duplicate_user:
+            raise HTTPException(status_code=400, detail="Nickname or email already in use")
 
     current_user.nickname = next_nickname
     current_user.email = next_email
+
+    profile_result = await db.execute(select(UserProfile).where(UserProfile.user_id == current_user.id))
+    profile = profile_result.scalars().first()
+    if payload.avatar_url is not None:
+        if not profile:
+            profile = UserProfile(user_id=current_user.id)
+            db.add(profile)
+        profile.avatar_url = next_avatar_url or None
+
     await db.commit()
     await db.refresh(current_user)
 
@@ -181,6 +217,7 @@ async def update_profile(
         "username": current_user.username,
         "nickname": current_user.nickname,
         "email": current_user.email,
+        "avatar_url": profile.avatar_url if profile else None,
         "mmr": current_user.mmr,
     }
 

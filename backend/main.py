@@ -24,6 +24,7 @@ async def startup_event():
     from app.models.user import User
     from app.models.match import Match
     from app.models.user_progression import UserProgression
+    from app.models.user_profile import UserProfile
     from app.models.item import Item, UserInventory
     from app.db.session import engine, async_session
     from sqlalchemy.future import select

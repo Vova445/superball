@@ -1,9 +1,8 @@
 'use client';
 
 import { type ChangeEvent, useEffect, useRef, useState } from 'react';
-import { type LucideIcon, BarChart3, Clock3, Flame, Goal, LineChart, Pencil, Shirt, Trophy, UserRound, X } from 'lucide-react';
+import { type LucideIcon, BarChart3, ChevronDown, Clock3, Flame, Goal, LineChart, Pencil, Shirt, Trophy, UserRound, X } from 'lucide-react';
 import { AppHeader } from '@/components/layout/AppHeader';
-import { Button } from '@/components/ui';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import api from '@/lib/api';
 import { cn } from '@/lib/cn';
@@ -12,14 +11,18 @@ import { useAuthStore } from '@/store/useAuthStore';
 type ProfileTab = 'overview' | 'history' | 'progress' | 'achievements' | 'stats' | 'customization';
 
 type ProfileData = {
+  id: number;
   level: number;
   xp: number;
   total_xp: number;
   xp_needed: number;
+  avatar_url: string | null;
   wins: number;
   losses: number;
+  draws: number;
   matches_played: number;
   goals_scored: number;
+  goals_conceded: number;
   best_win_streak: number;
   recent_matches: RecentMatch[];
 };
@@ -28,6 +31,7 @@ type RecentMatch = {
   id: number;
   score: string;
   result: 'WIN' | 'DRAW' | 'LOSS';
+  duration: number;
   played_at: string | null;
 };
 
@@ -136,11 +140,19 @@ export default function ProfilePage() {
 
     const loadProfile = async () => {
       try {
-        const response = await api.get<ProfileData & { level?: number }>('/api/profile');
+        const response = await api.get<ProfileData>('/api/profile');
         if (cancelled) return;
         setProfileData(response.data);
 
         const currentUser = useAuthStore.getState().user;
+        const localAvatar = window.localStorage.getItem(`profile-avatar:${response.data.id}`);
+        if (response.data.avatar_url) {
+          setAvatarUrl(response.data.avatar_url);
+        } else if (localAvatar) {
+          setAvatarUrl(localAvatar);
+          api.put('/api/profile', { avatar_url: localAvatar }).catch(() => undefined);
+        }
+
         if (currentUser) {
           useAuthStore.setState({
             user: {
@@ -169,12 +181,14 @@ export default function ProfilePage() {
   const avatarInitials = nickname.slice(0, 2).toUpperCase();
   const wins = profileData?.wins ?? 0;
   const losses = profileData?.losses ?? 0;
+  const draws = profileData?.draws ?? 0;
   const level = profileData?.level ?? user?.level ?? 1;
   const totalXp = profileData?.total_xp ?? 0;
   const xpNeeded = profileData?.xp_needed ?? level * 200;
   const xpPct = Math.min(100, xpNeeded > 0 ? (totalXp / xpNeeded) * 100 : 0);
   const matchesPlayed = profileData?.matches_played ?? wins + losses;
   const goalsScored = profileData?.goals_scored ?? 0;
+  const goalsConceded = profileData?.goals_conceded ?? 0;
   const bestWinStreak = profileData?.best_win_streak ?? 0;
   const recentMatches = profileData?.recent_matches ?? [];
   const winRate = matchesPlayed > 0 ? `${Math.round((wins / matchesPlayed) * 100)}%` : '0%';
@@ -213,6 +227,7 @@ export default function ProfilePage() {
           },
         });
       }
+      setAvatarUrl(response.data.avatar_url ?? avatarUrl);
 
       setEditing(false);
     } catch (error: any) {
@@ -232,10 +247,15 @@ export default function ProfilePage() {
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const nextAvatar = String(reader.result);
       setAvatarUrl(nextAvatar);
       window.localStorage.setItem(`profile-avatar:${user.id}`, nextAvatar);
+      try {
+        await api.put('/api/profile', { avatar_url: nextAvatar });
+      } catch (error: any) {
+        setProfileError(error?.response?.data?.detail ?? 'Failed to save avatar');
+      }
     };
     reader.readAsDataURL(file);
     event.target.value = '';
@@ -245,91 +265,91 @@ export default function ProfilePage() {
     <main className="lobby-bg relative min-h-screen overflow-hidden font-sans">
       <AppHeader />
 
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 pb-7 pt-[92px]">
-        <div className="grid h-[min(78vh,790px)] w-full max-w-[1440px] grid-cols-[250px_1fr] overflow-hidden rounded-lg border border-[#2b4250] bg-[#020b0f]/88 shadow-[0_24px_90px_rgba(0,0,0,0.58)] backdrop-blur-md">
-          <aside className="hidden border-r border-white/10 bg-[#02090d]/54 px-7 py-8 md:flex md:flex-col">
-            <h1 className="mb-8 text-[29px] font-extrabold uppercase tracking-[0.08em] text-white drop-shadow-[0_0_12px_rgba(210,255,244,0.72)]">
+      <div className="relative z-10 flex h-screen w-full pt-[58px]">
+        <div className="grid h-[calc(100vh-58px)] w-full grid-cols-1 overflow-hidden rounded-none border-y border-[#2b4250] bg-[#020b0f]/88 shadow-[0_24px_90px_rgba(0,0,0,0.58)] backdrop-blur-md md:grid-cols-[410px_minmax(0,1fr)]">
+          <aside className="hidden border-r border-white/10 bg-[#02090d]/54 px-9 py-7 md:flex md:flex-col">
+            <h1 className="mb-8 text-[31px] font-extrabold uppercase tracking-[0.08em] text-white drop-shadow-[0_0_12px_rgba(210,255,244,0.72)]">
               Profile
             </h1>
 
-            <nav className="space-y-2">
+            <nav className="space-y-3">
               {navItems.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => setActiveTab(item.id)}
                   className={cn(
-                    'relative flex h-14 w-full items-center gap-4 border-t border-white/10 px-1 text-left text-[15px] font-bold uppercase text-white/68 transition last:border-b hover:text-white',
-                    activeTab === item.id && 'border-transparent bg-[#06271f] px-4 text-[#00d69f]'
+                    'relative flex h-[66px] w-full items-center gap-6 rounded-[5px] px-5 text-left text-[17px] font-black uppercase text-white/70 transition hover:bg-white/[0.035] hover:text-white',
+                    activeTab === item.id && 'bg-[#063322] pl-7 text-[#00d69f] shadow-[inset_4px_0_0_#00d69f,0_0_22px_rgba(0,214,159,0.10)]'
                   )}
                 >
-                  {activeTab === item.id && <span className="absolute left-0 top-0 h-full w-1 bg-[#00d69f]" />}
-                  <item.icon className={cn('h-[18px] w-[18px]', activeTab === item.id ? 'text-[#00d69f]' : 'text-white/52')} strokeWidth={2.1} />
+                  <item.icon className={cn('h-7 w-7', activeTab === item.id ? 'text-[#00d69f]' : 'text-white/55')} strokeWidth={2.1} />
                   <span>{item.label}</span>
                 </button>
               ))}
             </nav>
 
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
+              type="button"
               onClick={openEditor}
-              className="mt-auto h-12 rounded-md border-white/10 bg-white/[0.06] px-6 font-sans text-[14px] font-bold normal-case text-white/78 hover:border-white/20 hover:bg-white/[0.09] hover:shadow-none"
+              className="mt-auto inline-flex h-[70px] w-full items-center justify-start rounded-[8px] border border-white/10 bg-white/[0.06] px-8 font-sans text-[20px] font-black text-white/86 transition hover:border-white/20 hover:bg-white/[0.09]"
             >
-              <Pencil className="mr-3 h-4 w-4 text-white/62" strokeWidth={2.1} />
+              <Pencil className="mr-5 h-7 w-7 text-white/66" strokeWidth={2.2} />
               Edit Profile
-            </Button>
+            </button>
           </aside>
 
-          <section className="profile-scroll min-w-0 overflow-y-auto px-5 py-5 lg:px-6">
-            <Panel className="mb-3 p-5">
-              <div className="grid items-center gap-6 lg:grid-cols-[1fr_620px]">
-                <div className="flex items-center gap-6">
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="group flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border border-cyan-300/35 bg-[conic-gradient(from_210deg,#ff21d8,#7d2dff,#00e2ff,#10212a,#ff21d8)] shadow-[0_0_34px_rgba(0,221,255,0.32)]"
-                      aria-label="Change avatar"
-                    >
-                      {avatarUrl ? (
-                        <img src={avatarUrl} alt="" className="h-[116px] w-[116px] rounded-full object-cover transition group-hover:brightness-75" />
-                      ) : (
-                        <div className="flex h-[104px] w-[104px] items-center justify-center rounded-full border border-white/20 bg-[#051013]/55 text-[30px] font-black text-white/82 transition group-hover:bg-[#082326]">
-                          {avatarInitials}
-                        </div>
-                      )}
-                    </button>
-                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={changeAvatar} />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="absolute bottom-2 right-1 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-[#172329] text-[12px] font-black text-white/70 transition hover:border-[#00d69f]/45 hover:text-white"
-                      aria-label="Edit avatar"
-                    >
-                      E
-                    </button>
-                  </div>
+          <section className={cn('profile-scroll h-full min-w-0 overflow-y-auto px-4 lg:px-5', activeTab === 'history' ? 'py-2' : 'py-4', activeTab === 'overview' && 'flex flex-col')}>
+            {activeTab !== 'history' && (
+              <Panel className="mb-4 min-h-[210px] shrink-0 p-8">
+                <div className="grid h-full items-center gap-10 lg:grid-cols-[1fr_660px] xl:grid-cols-[1fr_760px]">
+                  <div className="flex items-center gap-9">
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="group flex h-[158px] w-[158px] items-center justify-center overflow-hidden rounded-full border border-cyan-300/35 bg-[conic-gradient(from_210deg,#ff21d8,#7d2dff,#00e2ff,#10212a,#ff21d8)] shadow-[0_0_42px_rgba(0,221,255,0.36)]"
+                        aria-label="Change avatar"
+                      >
+                        {avatarUrl ? (
+                          <img src={avatarUrl} alt="" className="h-[144px] w-[144px] rounded-full object-cover transition group-hover:brightness-75" />
+                        ) : (
+                          <div className="flex h-[138px] w-[138px] items-center justify-center rounded-full border border-white/20 bg-[#051013]/55 text-[42px] font-black text-white/82 transition group-hover:bg-[#082326]">
+                            {avatarInitials}
+                          </div>
+                        )}
+                      </button>
+                      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={changeAvatar} />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute bottom-3 right-1 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#172329] text-[14px] font-black text-white/70 transition hover:border-[#00d69f]/45 hover:text-white"
+                        aria-label="Edit avatar"
+                      >
+                        E
+                      </button>
+                    </div>
 
-                  <div>
-                    <h2 className="text-[30px] font-extrabold text-white">{nickname}</h2>
-                    <p className="mt-1 text-[13px] font-semibold text-white/38">{user?.email}</p>
-                    <p className="mt-2 text-[16px] font-semibold text-white/62">Play. Compete. Win.</p>
-                    <div className="mt-4 inline-flex h-8 items-center gap-2 rounded-full border border-white/10 bg-white/[0.055] px-3">
-                      <span className="h-2 w-2 rounded-full bg-[#58e789] shadow-[0_0_10px_rgba(88,231,137,0.65)]" />
-                      <span className="text-[12px] font-bold text-white/78">Online</span>
+                    <div>
+                      <h2 className="text-[42px] font-extrabold leading-none text-white">{nickname}</h2>
+                      <p className="mt-3 text-[16px] font-semibold text-white/38">{user?.email}</p>
+                      <p className="mt-3 text-[21px] font-semibold text-white/66">Play. Compete. Win.</p>
+                      <div className="mt-6 inline-flex h-10 items-center gap-3 rounded-full border border-white/10 bg-white/[0.055] px-4">
+                        <span className="h-2.5 w-2.5 rounded-full bg-[#58e789] shadow-[0_0_10px_rgba(88,231,137,0.65)]" />
+                        <span className="text-[15px] font-bold text-white/82">Online</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-4 divide-x divide-white/10">
-                  <HeroStat label="Wins" value={wins} tone="text-[#00d69f]" />
-                  <HeroStat label="Losses" value={losses} tone="text-red-400" />
-                  <HeroStat label="Level" value={level} tone="text-amber-300" />
-                  <HeroStat label="Total XP" value={totalXp} tone="text-white" />
+                  <div className="grid grid-cols-4 divide-x divide-white/10">
+                    <HeroStat label="Wins" value={wins} tone="text-[#00d69f]" />
+                    <HeroStat label="Losses" value={losses} tone="text-red-400" />
+                    <HeroStat label="Level" value={level} tone="text-amber-300" />
+                    <HeroStat label="Total XP" value={totalXp} tone="text-white" />
+                  </div>
                 </div>
-              </div>
-            </Panel>
+              </Panel>
+            )}
 
             {activeTab === 'overview' && (
               <OverviewContent
@@ -343,7 +363,18 @@ export default function ProfilePage() {
                 onViewAllAchievements={() => setActiveTab('achievements')}
               />
             )}
-            {activeTab === 'history' && <MatchHistoryPanel matches={recentMatches} expanded />}
+            {activeTab === 'history' && (
+              <MatchHistoryPanel
+                matches={recentMatches}
+                matchesPlayed={matchesPlayed}
+                wins={wins}
+                draws={draws}
+                losses={losses}
+                goalsScored={goalsScored}
+                goalsConceded={goalsConceded}
+                expanded
+              />
+            )}
             {activeTab === 'progress' && <ProgressPanel totalXp={totalXp} xpNeeded={xpNeeded} xpPct={xpPct} level={level} expanded />}
             {activeTab === 'achievements' && <AchievementsPanel expanded />}
             {activeTab === 'stats' && <StatsPanel expanded statsRows={statsRows} />}
@@ -442,32 +473,32 @@ function OverviewContent({
   onViewAllAchievements: () => void;
 }) {
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
-              <div className="space-y-4">
+    <div className="grid min-h-[640px] flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+              <div className="grid h-full grid-rows-[160px_minmax(320px,1fr)_170px] gap-4">
                 <ProgressPanel totalXp={totalXp} xpNeeded={xpNeeded} xpPct={xpPct} level={level} />
                 <MatchHistoryPanel matches={recentMatches} onViewAll={onViewAllHistory} />
 
-                <Panel className="p-6">
-                  <div className="flex items-center gap-7">
-                    <MockBadge tone="gold" label="R" size="md" />
+                <Panel className="h-full p-6">
+                  <div className="flex h-full items-center gap-7">
+                    <MockBadge tone="gold" label="R" size="lg" />
                     <div>
                       <SectionTitle title="Player Badge" />
-                      <p className="text-[20px] font-bold text-white">Rookie</p>
-                      <p className="mt-2 text-[14px] font-semibold text-white/48">Keep playing to unlock new badges!</p>
+                      <p className="text-[21px] font-bold text-white">Rookie</p>
+                      <p className="mt-2 text-[14px] font-semibold text-white/52">Keep playing to unlock new badges!</p>
                     </div>
                   </div>
                 </Panel>
               </div>
 
-              <div className="space-y-4">
+              <div className="grid h-full grid-rows-[330px_minmax(260px,1fr)_170px] gap-4">
                 <StatsPanel statsRows={statsRows} />
                 <AchievementsPanel onViewAll={onViewAllAchievements} />
 
-                <Panel className="p-5">
+                <Panel className="h-full p-5">
                   <SectionTitle title="Recent Reward" />
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex h-[calc(100%-34px)] items-center justify-between gap-4">
                     <div className="flex items-center gap-5">
-                      <MockBadge tone="bronze" label="P" size="md" />
+                      <MockBadge tone="bronze" label="P" size="lg" />
                       <div>
                         <p className="text-[16px] font-bold text-white/86">Bronze Pack</p>
                         <p className="mt-1 text-[12px] font-semibold text-white/42">Earned 2 days ago</p>
@@ -497,16 +528,16 @@ function ProgressPanel({
   expanded?: boolean;
 }) {
   return (
-    <Panel className={cn('p-6', expanded && 'mx-auto max-w-4xl')}>
-      <div className="flex items-center gap-8">
-        <MockBadge tone="bronze" label={String(level)} size="md" />
+    <Panel className={cn('h-full min-h-[126px] p-6', expanded && 'mx-auto max-w-4xl')}>
+      <div className="flex h-full items-center gap-8">
+        <MockBadge tone="bronze" label={String(level)} size="lg" />
         <div className="min-w-0 flex-1">
           <SectionTitle title="Level Progress" />
           <div className="mb-2 flex justify-between text-[15px] font-bold text-white/82">
             <span>{totalXp} / {xpNeeded} XP</span>
             <span className="text-white/62">Next Level {level + 1}</span>
           </div>
-          <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
+          <div className="h-2.5 overflow-hidden rounded-full bg-white/12">
             <div className="h-full rounded-full bg-[#00d69f] shadow-[0_0_18px_rgba(0,214,159,0.45)]" style={{ width: `${xpPct}%` }} />
           </div>
           {expanded && (
@@ -548,20 +579,177 @@ function formatMatchDate(value: string | null) {
   }).format(date);
 }
 
-function MatchHistoryPanel({ expanded = false, matches, onViewAll }: { expanded?: boolean; matches: RecentMatch[]; onViewAll?: () => void }) {
+function formatDuration(seconds: number) {
+  const safeSeconds = Math.max(0, seconds || 0);
+  const minutes = Math.floor(safeSeconds / 60);
+  const rest = safeSeconds % 60;
+  return `${minutes}m ${String(rest).padStart(2, '0')}s`;
+}
+
+function MatchHistoryPanel({
+  expanded = false,
+  matches,
+  onViewAll,
+  matchesPlayed = matches.length,
+  wins = matches.filter((match) => match.result === 'WIN').length,
+  draws = matches.filter((match) => match.result === 'DRAW').length,
+  losses = matches.filter((match) => match.result === 'LOSS').length,
+  goalsScored,
+  goalsConceded,
+}: {
+  expanded?: boolean;
+  matches: RecentMatch[];
+  onViewAll?: () => void;
+  matchesPlayed?: number;
+  wins?: number;
+  draws?: number;
+  losses?: number;
+  goalsScored?: number;
+  goalsConceded?: number;
+}) {
   const visibleMatches = expanded ? matches : matches.slice(0, 3);
+  const scored = goalsScored ?? matches.reduce((total, match) => total + Number(match.score.split(':')[0] ?? 0), 0);
+  const conceded = goalsConceded ?? matches.reduce((total, match) => total + Number(match.score.split(':')[1] ?? 0), 0);
+  const winRate = matchesPlayed > 0 ? Math.round((wins / matchesPlayed) * 100) : 0;
+
+  if (expanded) {
+    return (
+      <div className="grid h-full min-h-[620px] gap-3 xl:grid-cols-[minmax(0,1fr)_330px]">
+        <Panel className="p-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h2 className="text-[22px] font-black uppercase text-white">Match History</h2>
+            <button type="button" className="flex h-10 items-center gap-3 rounded-md border border-white/10 bg-white/[0.045] px-4 text-[12px] font-black uppercase text-white/78">
+              <LineChart className="h-4 w-4 text-[#00d69f]" />
+              Filter
+              <ChevronDown className="h-4 w-4 text-white/52" />
+            </button>
+          </div>
+
+          <div className="mt-5 flex gap-8 border-b border-white/8 text-[12px] font-black uppercase text-white/48">
+            {['All Modes', 'Ranked', 'Unranked', 'Friendly', 'Tournaments'].map((tab, index) => (
+              <button
+                key={tab}
+                type="button"
+                className={cn('relative pb-3 transition hover:text-white', index === 0 && 'text-[#00d69f] after:absolute after:bottom-[-1px] after:left-0 after:h-[2px] after:w-full after:bg-[#00d69f]')}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-4 grid grid-cols-[84px_86px_1fr_120px_112px_24px] px-3 text-[12px] font-bold uppercase text-white/46">
+            <span>Result</span>
+            <span>Mode</span>
+            <span>Score</span>
+            <span>Time</span>
+            <span>Rewards</span>
+            <span />
+          </div>
+
+          <div className="mt-3 space-y-2">
+            {visibleMatches.length > 0 ? (
+              visibleMatches.map((match) => (
+                <div key={match.id} className="grid min-h-[58px] grid-cols-[84px_86px_1fr_120px_112px_24px] items-center rounded-md border border-white/5 bg-[#081c23]/78 px-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+                  <div>
+                    <p className={cn('text-[13px] font-black uppercase', match.result === 'WIN' && 'text-[#00d69f]', match.result === 'DRAW' && 'text-white/70', match.result === 'LOSS' && 'text-red-400')}>
+                      {match.result}
+                    </p>
+                    <p className="mt-1 text-[11px] font-bold text-amber-300">Trophy</p>
+                  </div>
+                  <div>
+                    <span className="rounded-[4px] border border-[#8b35ff]/55 bg-[#32124f] px-2 py-1 text-[12px] font-black text-white">3v3</span>
+                    <p className="mt-2 text-[11px] font-semibold text-white/45">Ranked</p>
+                  </div>
+                  <p className={cn('text-center text-[22px] font-black tabular-nums', match.result === 'LOSS' ? 'text-red-400' : match.result === 'WIN' ? 'text-[#00d69f]' : 'text-white')}>
+                    {match.score}
+                  </p>
+                  <div className="text-[12px] font-bold text-white/45">
+                    <p>{formatMatchDate(match.played_at)}</p>
+                    <p className="mt-1">{formatDuration(match.duration)}</p>
+                  </div>
+                  <div className="text-[12px] font-black text-white/76">
+                    <span className="text-amber-300">XP</span>
+                    <span className="ml-2">{match.result === 'WIN' ? '+100' : match.result === 'DRAW' ? '+50' : '+30'}</span>
+                  </div>
+                  <span className="text-right text-[24px] text-white/48">›</span>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-md bg-white/[0.035] px-4 py-8 text-center text-[13px] font-semibold text-white/44">No matches yet</div>
+            )}
+          </div>
+          <div className="mt-4 border-t border-white/8 pt-3 text-center">
+            <button type="button" className="inline-flex h-9 items-center gap-2 rounded-md border border-[#00d69f]/28 bg-[#00d69f]/8 px-6 text-[12px] font-black uppercase text-[#00d69f]">
+              <Clock3 className="h-4 w-4" />
+              Load More
+            </button>
+          </div>
+        </Panel>
+
+        <Panel className="p-4">
+          <div className="mb-5 flex items-center gap-2">
+            <h2 className="text-[16px] font-black uppercase text-white">Match Summary</h2>
+            <span className="text-[11px] font-bold text-white/40">(This Season)</span>
+          </div>
+
+          <div className="grid grid-cols-[112px_1fr] items-center gap-5">
+            <div className="grid h-[112px] w-[112px] place-items-center rounded-full bg-[conic-gradient(#00d69f_0_var(--rate),rgba(255,255,255,0.08)_var(--rate)_100%)] p-[6px]" style={{ '--rate': `${winRate}%` } as React.CSSProperties}>
+              <div className="grid h-full w-full place-items-center rounded-full bg-[#071418] text-center">
+                <div>
+                  <p className="text-[28px] font-black text-white">{winRate}%</p>
+                  <p className="text-[12px] font-bold text-white/62">Win Rate</p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2 text-[13px]">
+              <SummaryRow label="Matches Played" value={matchesPlayed} />
+              <SummaryRow label="Wins" value={wins} />
+              <SummaryRow label="Draws" value={draws} />
+              <SummaryRow label="Losses" value={losses} />
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <h3 className="mb-4 text-[14px] font-black uppercase text-white">Goals Overview</h3>
+            <div className="space-y-3 text-[13px]">
+              <SummaryRow label="Goals Scored" value={scored} />
+              <SummaryRow label="Goals Conceded" value={conceded} />
+              <SummaryRow label="Goal Difference" value={`${scored - conceded >= 0 ? '+' : ''}${scored - conceded}`} tone={scored - conceded >= 0 ? 'text-[#00d69f]' : 'text-red-400'} />
+            </div>
+          </div>
+
+          <div className="mt-8 border-t border-white/8 pt-5">
+            <h3 className="mb-4 text-[14px] font-black uppercase text-white">Favorite Mode</h3>
+            <div className="grid grid-cols-[56px_1fr_72px_52px] items-center gap-3 text-[13px]">
+              <span className="rounded-[4px] border border-[#8b35ff]/55 bg-[#32124f] px-2 py-1 text-center text-[12px] font-black text-white">3v3</span>
+              <span className="font-bold text-white/82">Ranked 3v3</span>
+              <span className="text-right text-white/48">Win Rate<br /><b className="text-white">{winRate}%</b></span>
+              <span className="text-right text-white/48">Matches<br /><b className="text-white">{matchesPlayed}</b></span>
+            </div>
+          </div>
+
+          <button type="button" className="mt-8 flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#00d69f]/35 bg-[#00d69f]/8 text-[12px] font-black uppercase text-[#00d69f] transition hover:bg-[#00d69f]/14">
+            <BarChart3 className="h-4 w-4" />
+            View Detailed Stats
+          </button>
+        </Panel>
+      </div>
+    );
+  }
 
   return (
-    <Panel className={cn('p-5', expanded && 'mx-auto max-w-5xl')}>
+    <Panel className={cn('p-5', !expanded && 'h-full min-h-0', expanded && 'mx-auto max-w-5xl')}>
       <SectionTitle title="Match History" action={expanded ? undefined : 'View All'} onAction={onViewAll} />
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         {visibleMatches.length > 0 ? (
           visibleMatches.map((match) => (
-            <div key={match.id} className="grid min-h-[58px] grid-cols-[92px_minmax(84px,1fr)_minmax(96px,150px)] items-center gap-4 rounded-md bg-white/[0.035] px-4 py-3">
+            <div key={match.id} className="grid min-h-[48px] grid-cols-[96px_minmax(84px,1fr)_minmax(74px,110px)] items-center gap-4 rounded-md bg-white/[0.04] px-4 py-2">
               <p className={cn('text-[13px] font-black uppercase', match.result === 'WIN' && 'text-[#00d69f]', match.result === 'DRAW' && 'text-amber-300', match.result === 'LOSS' && 'text-red-400')}>
                 {match.result}
               </p>
-              <p className="text-center text-[24px] font-black tabular-nums text-white">{match.score}</p>
+              <p className={cn('text-center text-[24px] font-black tabular-nums', match.result === 'LOSS' ? 'text-red-400' : match.result === 'WIN' ? 'text-[#00d69f]' : 'text-white')}>
+                {match.score}
+              </p>
               <p className="text-right text-[12px] font-bold text-white/42">{formatMatchDate(match.played_at)}</p>
             </div>
           ))
@@ -577,18 +765,18 @@ function MatchHistoryPanel({ expanded = false, matches, onViewAll }: { expanded?
 
 function StatsPanel({ expanded = false, statsRows }: { expanded?: boolean; statsRows: StatsRow[] }) {
   return (
-    <Panel className={cn('p-5', expanded && 'mx-auto max-w-3xl')}>
+    <Panel className={cn('p-5', !expanded && 'h-full min-h-[310px]', expanded && 'mx-auto max-w-3xl')}>
       <SectionTitle title="Stats Overview" />
-      <div className={cn('space-y-4', expanded && 'grid gap-3 space-y-0 sm:grid-cols-2')}>
+      <div className={cn('space-y-3', !expanded && 'pb-2', expanded && 'grid gap-3 space-y-0 sm:grid-cols-2')}>
         {statsRows.map(({ label, value, icon: Icon }) => (
-          <div key={label} className="grid grid-cols-[1fr_70px] items-center gap-4 rounded-md bg-white/[0.025] p-2">
+          <div key={label} className="grid grid-cols-[1fr_70px] items-center gap-4 rounded-md bg-white/[0.035] p-2">
             <div className="flex items-center gap-3">
-              <span className="flex h-6 w-6 items-center justify-center text-[#00d69f] drop-shadow-[0_0_10px_rgba(0,214,159,0.5)]">
-                <Icon className="h-5 w-5" strokeWidth={2.4} />
+              <span className="flex h-7 w-7 items-center justify-center text-[#00d69f] drop-shadow-[0_0_10px_rgba(0,214,159,0.5)]">
+                <Icon className="h-[21px] w-[21px]" strokeWidth={2.4} />
               </span>
-              <span className="text-[14px] font-semibold text-white/72">{label}</span>
+              <span className="text-[14px] font-bold text-white/74">{label}</span>
             </div>
-            <span className="text-right text-[15px] font-bold text-white/88">{value}</span>
+            <span className="text-right text-[15px] font-black text-white/88">{value}</span>
           </div>
         ))}
       </div>
@@ -596,9 +784,18 @@ function StatsPanel({ expanded = false, statsRows }: { expanded?: boolean; stats
   );
 }
 
+function SummaryRow({ label, value, tone = 'text-white' }: { label: string; value: number | string; tone?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-white/55">{label}</span>
+      <span className={cn('font-black tabular-nums', tone)}>{value}</span>
+    </div>
+  );
+}
+
 function AchievementsPanel({ expanded = false, onViewAll }: { expanded?: boolean; onViewAll?: () => void }) {
   return (
-    <Panel className={cn('p-5', expanded && 'mx-auto max-w-5xl')}>
+    <Panel className={cn('p-5', !expanded && 'h-full min-h-0', expanded && 'mx-auto max-w-5xl')}>
       <SectionTitle title="Achievements" action={expanded ? undefined : 'View All'} onAction={onViewAll} />
       <div className={cn('grid gap-4', expanded ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-4')}>
         {achievements.map((achievement) => (
@@ -615,11 +812,11 @@ function AchievementsPanel({ expanded = false, onViewAll }: { expanded?: boolean
                         : 'dark'
                 }
                 label={achievement.icon === 'lock' ? 'L' : achievement.icon === 'goal' ? 'G' : achievement.icon}
-                size="md"
+                size="lg"
               />
             </div>
-            <p className="text-[11px] font-black uppercase text-white/78">{achievement.title}</p>
-            <p className="mt-2 text-[11px] leading-4 text-white/42">{achievement.desc}</p>
+            <p className="text-[11px] font-black uppercase text-white/82">{achievement.title}</p>
+            <p className="mt-2 text-[11px] leading-4 text-white/45">{achievement.desc}</p>
           </div>
         ))}
       </div>
@@ -648,9 +845,9 @@ function CustomizationPanel() {
 
 function HeroStat({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
-    <div className="px-6 text-center">
-      <p className="mb-4 text-[13px] font-black uppercase text-white/62">{label}</p>
-      <p className={cn('text-[40px] font-black leading-none tabular-nums drop-shadow-[0_0_12px_rgba(255,255,255,0.18)]', tone)}>
+    <div className="px-8 text-center">
+      <p className="mb-6 text-[16px] font-black uppercase text-white/66">{label}</p>
+      <p className={cn('text-[58px] font-black leading-none tabular-nums drop-shadow-[0_0_12px_rgba(255,255,255,0.18)]', tone)}>
         {value}
       </p>
     </div>
